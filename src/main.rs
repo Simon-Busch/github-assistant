@@ -1,6 +1,7 @@
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
 use serde::{Deserialize};
 use dotenv::dotenv;
+use tokio::runtime::Runtime;
 
 #[derive(Debug, Deserialize)]
 struct Issue {
@@ -31,15 +32,30 @@ fn init_variables() -> (String, String) {
   return (username, access_token);
 }
 
-#[tokio::main]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let (username, accesss_token) = init_variables();
+    let (username, access_token) = init_variables();
     println!("Username: {}", username);
-    println!("Access Token: {}", accesss_token);
-    let issues_and_pull_requests =
-    get_issues_and_pull_requests_assigned_to_user(&username, &accesss_token).await?;
-    println!("{:#?}", issues_and_pull_requests);
-    Ok(())
+    println!("Access Token: {}", access_token);
+    // let issues_and_pull_requests =
+    //     get_issues_and_pull_requests_assigned_to_user(&username, &accesss_token);
+    // println!("{:#?}", issues_and_pull_requests);
+    // Ok(())
+    let rt = Runtime::new()?;
+    let result = rt.block_on(get_issues_and_pull_requests_assigned_to_user(&username, &access_token));
+
+    match result {
+        Ok(issues_and_pull_requests) => {
+            // Handle the list of issues and pull requests assigned to the user
+            Ok(for issue_or_pull_request in issues_and_pull_requests {
+                // Process each issue or pull request object as needed
+                println!("{:#?}", issue_or_pull_request)
+            })
+        }
+        Err(e) => Ok({
+            // Handle the error
+            eprintln!("Error: {}", e);
+        })
+    }
 }
 
 // #[derive(Debug, Deserialize)]
