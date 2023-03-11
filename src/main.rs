@@ -12,17 +12,20 @@ struct PullRequest {
     // Define the fields you want to retrieve from the API response
 }
 
-fn init_variables() {
+
+
+fn init_variables() -> (String, String) {
   dotenv().ok();
   let username = std::env::var("GITHUB_USERNAME").expect("GITHUB_USERNAME must be set.");
-  println!("The value of GITHUB_USERNAME is {}", username);
   let access_token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN must be set.");
-  println!("The value of GITHUB_TOKEN is {}", access_token);
+  return (username, access_token);
 }
 
 fn main()  {
-    init_variables();
-    // // Set the API endpoint to retrieve issues and pull requests associated with the specified username
+    let (username, accesss_token) = init_variables();
+    println!("Username: {}", username);
+    println!("Access Token: {}", accesss_token);
+    // Set the API endpoint to retrieve issues and pull requests associated with the specified username
     // let url = format!("https://api.github.com/search/issues?q=author:{}&type=issue,pr", username);
 
     // let client = reqwest::Client::new();
