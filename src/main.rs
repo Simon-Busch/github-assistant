@@ -1,29 +1,9 @@
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
-use serde::{Deserialize};
+use reqwest::header::{HeaderValue, ACCEPT};
+use serde::{Deserialize, Serialize};
 use dotenv::dotenv;
-use tokio::runtime::Runtime;
-
-#[derive(Debug, Deserialize)]
-struct Issue {
-    title: String,
-    html_url: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct PullRequest {
-    title: String,
-    html_url: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct IssueOrPullRequest {
-    html_url: String,
-    #[serde(rename = "pull_request")]
-    pull_request: Option<PullRequest>,
-    #[serde(rename = "issue")]
-    issue: Option<Issue>,
-}
-
+use tokio;
+use reqwest::header;
+use std::error::Error;
 
 fn init_variables() -> (String, String) {
   dotenv().ok();
@@ -32,73 +12,63 @@ fn init_variables() -> (String, String) {
   return (username, access_token);
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
     let (username, access_token) = init_variables();
     println!("Username: {}", username);
     println!("Access Token: {}", access_token);
-    // let issues_and_pull_requests =
-    //     get_issues_and_pull_requests_assigned_to_user(&username, &accesss_token);
-    // println!("{:#?}", issues_and_pull_requests);
-    // Ok(())
-    let rt = Runtime::new()?;
-    let result = rt.block_on(get_issues_and_pull_requests_assigned_to_user(&username, &access_token));
 
-    match result {
-        Ok(issues_and_pull_requests) => {
-            // Handle the list of issues and pull requests assigned to the user
-            Ok(for issue_or_pull_request in issues_and_pull_requests {
-                // Process each issue or pull request object as needed
-                println!("{:#?}", issue_or_pull_request)
-            })
-        }
-        Err(e) => Ok({
-            // Handle the error
-            eprintln!("Error: {}", e);
-        })
-    }
+    let mut headers = header::HeaderMap::new();
+    headers.insert(
+    ACCEPT,
+    HeaderValue::from_static("application/vnd.github.v3+json"),
+    );
+    headers.insert(
+        "Authorization",
+        HeaderValue::from_str(&format!("Bearer {}", access_token)).unwrap(),
+    );
+    headers.insert("User-Agent", HeaderValue::from_static("my app"));
+    let client = reqwest::Client::builder()
+      .default_headers(headers)
+      .build()?;
+    let base_url = "https://api.github.com";
+    let url = format!(
+        "{}/search/issues?q=assignee:{}",
+        base_url, username
+    );
+    let github_response = client
+        .get(url)
+        .send()
+        .await?
+        .text()
+        .await?;
+    // println!("{:}", github_response);
+    let json_response: ApiResponse = serde_json::from_str(&github_response)?;
+    println!("{:?}", json_response.items);
+    println!("{:?}", json_response.items[0].url);
+    println!("{:?}", json_response.items[1].labels);
+
+    Ok(())
 }
 
-// #[derive(Debug, Deserialize)]
-// struct ApiResponse {
-//     items: Vec<ApiResponseItem>,
-// }
+#[derive(Debug, Deserialize)]
+struct ApiResponse {
+  total_count: i32,
+  items: Vec<ApiResponseItem>,
+}
 
-// #[derive(Debug, Deserialize)]
-// #[serde(untagged)]
-// enum ApiResponseItem {
-//     Issue(Issue),
-//     PullRequest(PullRequest),
-// }
-
-async fn get_issues_and_pull_requests_assigned_to_user(
-  username: &str,
-  access_token: &str,
-) -> Result<Vec<IssueOrPullRequest>, reqwest::Error> {
-  let base_url = "https://api.github.com";
-  let url = format!(
-      "{}/search/issues?q=assignee:{}",
-      base_url, username
-  );
-  let client = reqwest::Client::new();
-  let mut headers = HeaderMap::new();
-  headers.insert(
-      ACCEPT,
-      HeaderValue::from_static("application/vnd.github.v3+json"),
-  );
-  headers.insert(
-      "Authorization",
-      HeaderValue::from_str(&format!("token {}", access_token)).unwrap(),
-  );
-  let response = client
-      .get(&url)
-      .headers(headers)
-      .send()
-      .await?
-      .json::<serde_json::Value>()
-      .await?;
-  let issues_and_pull_requests: Vec<IssueOrPullRequest> = serde_json::from_value(
-      response["items"].clone(),
-  )
-  .unwrap();
-  Ok(issues_and_pull_requests)
+#[derive(Debug, Deserialize, Serialize)]
+struct ApiResponseItem {
+  #[serde(rename = "html_url")]
+  url: String,
+  title: String,
+  #[serde(skip)]
+  number: i32,
+  state: String,
+  created_at: String,
+  labels: Vec<Label>,
+}
+#[derive(Debug, Deserialize, Serialize)]
+struct Label {
+  name: String,
 }
