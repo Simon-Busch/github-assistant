@@ -14,3 +14,4 @@ futures = "0.3"
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 tui = { version = "0.14", default-features = false, features = ['crossterm', 'serde'] }
 crossterm = { version = "0.19", features = [ "serde" ] }
+open = "3.0"

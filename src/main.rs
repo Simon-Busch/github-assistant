@@ -86,9 +86,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let (username, access_token) = init_variables();
     let github_response = get_github_response(&username, &access_token).await?;
     let items: ApiResponse = serde_json::from_str(&github_response)?;
-    println!("{:?}", items.items);
-    println!("{:?}", items.items[0].url);
-    println!("{:?}", items.items[1].labels);
+    let issues_list = &items.items;
+    println!("{:?}", issues_list);
+    println!("{:?}", issues_list[0].url);
+    println!("{:?}", issues_list[1].body);
+    println!("{:?}", items.total_count);
 
     let menu_titles = vec!["Home","Issues", "PullRequests", "Quit"]; // vec!["Home", "Issues", "PR", "Quit"]
     let mut active_menu_item = MenuItem::Home;
@@ -153,11 +155,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                   let pets_chunks = Layout::default()
                       .direction(Direction::Horizontal)
                       .constraints(
-                          [Constraint::Percentage(20), Constraint::Percentage(80)].as_ref(),
+                          [Constraint::Percentage(15), Constraint::Percentage(80)].as_ref(),
                       )
                       .split(chunks[1]);
                     let selected_issue_index = issue_list_state.selected();
-                    let (left, right) = render_issues(&items.items, selected_issue_index);
+                    let (left, right) = render_issues(&issues_list, selected_issue_index);
                   rect.render_stateful_widget(left, pets_chunks[0], &mut issue_list_state);
                   rect.render_widget(right, pets_chunks[1]);
               }
@@ -178,7 +180,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
               KeyCode::Down => {
                 if let Some(selected) = issue_list_state.selected() {
                     let next = selected + 1;
-                    if next < items.items.len() {
+                    if next < issues_list.len() {
                         issue_list_state.select(Some(next));
                     }
                 }
@@ -191,6 +193,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
                       }
                   }
               }
+              KeyCode::Enter => {
+                if let Some(selected) = issue_list_state.selected() {
+                    let url = &items.items[selected].url;
+                    if let Err(e) = open::that(url) {
+                        eprintln!("Failed to open URL '{}': {}", url, e);
+                    }
+                }
+              }
+
               _ => {}
           },
           Event::Tick => {}
@@ -259,6 +270,7 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
           url: "".to_owned(),
           title: "".to_owned(),
           number: 0,
+          body: None,
           state: "".to_owned(),
           created_at: "".to_owned(),
           labels: vec![],
@@ -291,9 +303,9 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
             .borders(Borders::ALL),
     )
     .widths(&[
-        Constraint::Length(10),
-        Constraint::Length(10),
-        Constraint::Length(30),
+        Constraint::Length(6),
+        Constraint::Length(50),
+        Constraint::Length(20),
         Constraint::Min(0),
     ])
     .highlight_style(
@@ -322,7 +334,7 @@ async fn get_github_response(username: &str, access_token: &str) -> Result<Strin
       .build()?;
   let base_url = "https://api.github.com";
   let url = format!(
-      "{}/search/issues?q=assignee:{}",
+      "{}/search/issues?q=assignee:{}+state:open&per_page=100",
       base_url, username
   );
   let github_response = client
@@ -350,6 +362,7 @@ struct ApiResponseItem {
   state: String,
   created_at: String,
   labels: Vec<Label>,
+  body: Option<String>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 struct Label {
