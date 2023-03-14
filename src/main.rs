@@ -92,8 +92,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let menu_titles = vec!["Home","Issues", "PullRequests", "Quit"]; // vec!["Home", "Issues", "PR", "Quit"]
     let mut active_menu_item = MenuItem::Home;
-    let mut pet_list_state = ListState::default();
-    pet_list_state.select(Some(0));
+    let mut issue_list_state = ListState::default();
+    issue_list_state.select(Some(0));
     loop {
       terminal.draw(|rect| {
           let size = rect.size();
@@ -156,8 +156,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                           [Constraint::Percentage(20), Constraint::Percentage(80)].as_ref(),
                       )
                       .split(chunks[1]);
-                  let (left, right) = render_issues(&items.items);
-                  rect.render_stateful_widget(left, pets_chunks[0], &mut pet_list_state);
+                    let selected_issue_index = issue_list_state.selected();
+                    let (left, right) = render_issues(&items.items, selected_issue_index);
+                  rect.render_stateful_widget(left, pets_chunks[0], &mut issue_list_state);
                   rect.render_widget(right, pets_chunks[1]);
               }
           }
@@ -174,33 +175,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
               KeyCode::Char('h') => active_menu_item = MenuItem::Home,
               KeyCode::Char('i') => active_menu_item = MenuItem::Issues,
               KeyCode::Char('p') => active_menu_item = MenuItem::PullRequests,
-              // KeyCode::Char('p') => active_menu_item = MenuItem::Pets,
-              // KeyCode::Char('a') => {
-              //     add_random_pet_to_db().expect("can add new random pet");
-              // }
-              // KeyCode::Char('d') => {
-              //     remove_pet_at_index(&mut pet_list_state).expect("can remove pet");
-              // }
-              // KeyCode::Down => {
-              //     if let Some(selected) = pet_list_state.selected() {
-              //         let amount_pets = read_db().expect("can fetch pet list").len();
-              //         if selected >= amount_pets - 1 {
-              //             pet_list_state.select(Some(0));
-              //         } else {
-              //             pet_list_state.select(Some(selected + 1));
-              //         }
-              //     }
-              // }
-              // KeyCode::Up => {
-              //     if let Some(selected) = pet_list_state.selected() {
-              //         let amount_pets = read_db().expect("can fetch pet list").len();
-              //         if selected > 0 {
-              //             pet_list_state.select(Some(selected - 1));
-              //         } else {
-              //             pet_list_state.select(Some(amount_pets - 1));
-              //         }
-              //     }
-              // }
+              KeyCode::Down => {
+                if let Some(selected) = issue_list_state.selected() {
+                    let next = selected + 1;
+                    if next < items.items.len() {
+                        issue_list_state.select(Some(next));
+                    }
+                }
+              }
+              KeyCode::Up => {
+                  if let Some(selected) = issue_list_state.selected() {
+                      let next = selected.checked_sub(1);
+                      if let Some(new_selection) = next {
+                          issue_list_state.select(Some(new_selection));
+                      }
+                  }
+              }
               _ => {}
           },
           Event::Tick => {}
@@ -227,7 +217,6 @@ fn render_home<'a>() -> Paragraph<'a> {
           Style::default().fg(Color::LightBlue),
       )]),
       Spans::from(vec![Span::raw("")]),
-      // Spans::from(vec![Span::raw("Press 'p' to access pets, 'a' to add random new pets and 'd' to delete the currently selected pet.")]),
   ])
   .alignment(Alignment::Center)
   .block(
@@ -240,78 +229,81 @@ fn render_home<'a>() -> Paragraph<'a> {
   home
 }
 
-fn render_issues<'a>(issues:  &Vec<ApiResponseItem>) -> (List<'a>, Table<'a>) {
-  let pets = Block::default()
-      .borders(Borders::ALL)
-      .style(Style::default().fg(Color::White))
-      .title("Pets")
-      .border_type(BorderType::Plain);
 
-  // let pet_list = read_db().expect("can fetch pet list");
-  let items: Vec<_> = issues
+fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option<usize>) -> (List<'a>, Table<'a>) {
+  let items: Vec<ListItem> = issues
       .iter()
-      .map(|issue| {
-          ListItem::new(Spans::from(vec![Span::styled(
-              issue.title.clone(),
-              Style::default(),
-          )]))
+      .map(|i| {
+          let mut labels = i.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>();
+          labels.sort();
+          let mut labels_string = labels.join(", ");
+          if labels_string.len() > 20 {
+              labels_string.truncate(20);
+              labels_string.push_str("...");
+          }
+          ListItem::new(Spans::from(vec![
+              Span::raw(format!(
+                  "{: <4} | {: <20} | {: <30} | {: <20}",
+                  i.number, i.state, labels_string, i.title
+              )),
+          ]))
       })
       .collect();
 
-  let selected_issue = &issues[0];
+  let issue_list = List::new(items)
+      .block(Block::default().title("Issues").borders(Borders::ALL))
+      .style(Style::default().fg(Color::White))
+      .highlight_style(Style::default().fg(Color::Yellow));
 
-  let list = List::new(items).block(pets).highlight_style(
-      Style::default()
-          .bg(Color::Yellow)
-          .fg(Color::Black)
-          .add_modifier(Modifier::BOLD),
-  );
+  let binding = ApiResponseItem {
+          url: "".to_owned(),
+          title: "".to_owned(),
+          number: 0,
+          state: "".to_owned(),
+          created_at: "".to_owned(),
+          labels: vec![],
+      };
+  let selected_issue = selected_issue_index
+      .map(|i| &issues[i])
+      .unwrap_or(&binding);
 
-  let issue_details = Table::new(vec![Row::new(vec![
-      Cell::from(Span::raw(selected_issue.number.to_string())),
-      Cell::from(Span::raw(selected_issue.title.to_string())),
-      Cell::from(Span::raw(selected_issue.state.to_string())),
-      Cell::from(Span::raw(selected_issue.url.to_string())),
-      Cell::from(Span::raw(selected_issue.created_at.to_string())),
-  ])])
-  .header(Row::new(vec![
-      Cell::from(Span::styled(
-          "number",
-          Style::default().add_modifier(Modifier::BOLD),
-      )),
-      Cell::from(Span::styled(
-          "title",
-          Style::default().add_modifier(Modifier::BOLD),
-      )),
-      Cell::from(Span::styled(
-          "state",
-          Style::default().add_modifier(Modifier::BOLD),
-      )),
-      Cell::from(Span::styled(
-          "url",
-          Style::default().add_modifier(Modifier::BOLD),
-      )),
-      Cell::from(Span::styled(
-          "Created At",
-          Style::default().add_modifier(Modifier::BOLD),
-      )),
-  ]))
-  .block(
-      Block::default()
-          .borders(Borders::ALL)
-          .style(Style::default().fg(Color::White))
-          .title("Detail")
-          .border_type(BorderType::Plain),
-  )
-  .widths(&[
-      Constraint::Percentage(5),
-      Constraint::Percentage(20),
-      Constraint::Percentage(20),
-      Constraint::Percentage(5),
-      Constraint::Percentage(20),
-  ]);
+  let issue_details = Table::new(vec![
+      Row::new(vec![
+          Cell::from("Number"),
+          Cell::from("Title"),
+          Cell::from("Labels"),
+          Cell::from("State"),
+      ])
+      .style(Style::default().fg(Color::Yellow))
+      .height(1),
+      Row::new(vec![
+          Cell::from(selected_issue.number.to_string()),
+          Cell::from(selected_issue.title.clone()),
+          Cell::from(selected_issue.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>().join(", ")),
+          Cell::from(selected_issue.state.clone()),
+      ])
+      .style(Style::default().fg(Color::White))
+      .height(1),
+    ])
+    .block(
+        Block::default()
+            .title("Details")
+            .borders(Borders::ALL),
+    )
+    .widths(&[
+        Constraint::Length(10),
+        Constraint::Length(10),
+        Constraint::Length(30),
+        Constraint::Min(0),
+    ])
+    .highlight_style(
+        Style::default()
+            .add_modifier(Modifier::BOLD)
+            .fg(Color::LightMagenta),
+    )
+    .highlight_symbol("> ");
 
-  (list, issue_details)
+  (issue_list, issue_details)
 }
 
 async fn get_github_response(username: &str, access_token: &str) -> Result<String, Box<dyn Error>> {
@@ -353,7 +345,7 @@ struct ApiResponseItem {
   #[serde(rename = "html_url")]
   url: String,
   title: String,
-  #[serde(skip)]
+  // #[serde(skip)]
   number: i32,
   state: String,
   created_at: String,
