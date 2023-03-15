@@ -31,7 +31,7 @@ enum Event<I> {
 enum MenuItem {
     Home,
     Assignments,
-    // PullRequests,
+    Closed,
 }
 
 impl From<MenuItem> for usize {
@@ -39,16 +39,16 @@ impl From<MenuItem> for usize {
         match input {
             MenuItem::Home => 0,
             MenuItem::Assignments => 1,
-            // MenuItem::PullRequests => 2,
+            MenuItem::Closed => 2,
         }
     }
 }
 
 fn init_variables() -> (String, String) {
-  dotenv().ok();
-  let username = std::env::var("GITHUB_USERNAME").expect("GITHUB_USERNAME must be set.");
-  let access_token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN must be set.");
-  return (username, access_token);
+    dotenv().ok();
+    let username = std::env::var("GITHUB_USERNAME").expect("GITHUB_USERNAME must be set.");
+    let access_token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN must be set.");
+    return (username, access_token);
 }
 
 #[tokio::main]
@@ -84,22 +84,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
     terminal.clear()?;
 
     let (username, access_token) = init_variables();
-    let github_response = get_github_response(&username, &access_token).await?;
-    let mut items: ApiResponse = serde_json::from_str(&github_response)?;
-    for item in &mut items.items {
-      let url_parts: Vec<&str> = item.url.split("/").collect();
-      // println!("{:?}", url_parts);
-      item.repository = Some(url_parts[url_parts.len() - 3].to_string());
-      item.organization = Some(url_parts[url_parts.len() - 4].to_string());
-  }
+    let issues_list_response_open = get_github_response(&username, &access_token, "open").await?;
+    let issues_list_response_closed = get_github_response(&username, &access_token, "closed").await?;
 
-    let issues_list = &items.items;
-    println!("{:?}", issues_list);
-    println!("{:?}", issues_list[0].url);
-    println!("{:?}", issues_list[1].body);
-    println!("{:?}", items.total_count);
+    let mut issues_list_open = issues_list_response_open.items.to_owned();
+    //sort alphabetically by repository
+    issues_list_open.sort_by_key(|i| i.repository.clone().unwrap_or_default());
 
-    let menu_titles = vec!["Home","Assignments", "Quit"]; // Add "Refresh",
+    // println!("{:?}", issues_list);
+    // println!("{:?}", issues_list[0].url);
+    // println!("{:?}", issues_list[1].body);
+    // println!("{:?}", issues_list_response_open.total_count);
+    // Interest in keeping the closed issues list ?
+    let mut issues_list_closed = issues_list_response_closed.items.to_owned();
+    //sort alphabetically by repository
+    issues_list_closed.sort_by_key(|i| i.repository.clone().unwrap_or_default());
+
+    let menu_titles = vec!["Home","Assignments", "Closed", "Quit"]; // Add "Refresh",
     let mut active_menu_item = MenuItem::Home;
     let mut issue_list_state = ListState::default();
     issue_list_state.select(Some(0));
@@ -166,10 +167,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
                       )
                       .split(chunks[1]);
                     let selected_issue_index = issue_list_state.selected();
-                    let (left, right) = render_issues(&issues_list, selected_issue_index);
+                    let (left, right) = render_issues(&issues_list_open, selected_issue_index);
                   rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state);
                   rect.render_widget(right, data_chunck[1]);
-              }
+              },
+              MenuItem::Closed => {
+                let data_chunck = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints(
+                        [Constraint::Percentage(20), Constraint::Percentage(80)].as_ref(),
+                    )
+                    .split(chunks[1]);
+                  let selected_issue_index = issue_list_state.selected();
+                  let (left, right) = render_issues(&issues_list_closed, selected_issue_index);
+                rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state);
+                rect.render_widget(right, data_chunck[1]);
+            }
           }
           rect.render_widget(copyright, chunks[2]);
       })?;
@@ -183,19 +196,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
               }
               KeyCode::Char('h') => active_menu_item = MenuItem::Home,
               KeyCode::Char('a') => active_menu_item = MenuItem::Assignments,
-              // KeyCode::Char('p') => active_menu_item = MenuItem::PullRequests,
-              // KeyCode::Char('r') => {
-              //   github_response = get_github_response(&username, &access_token).await?;
-              //   items = serde_json::from_str(&github_response)?;
-              //   issues_list = &items.items;
-              // }
+              KeyCode::Char('c') => active_menu_item = MenuItem::Closed,
               KeyCode::Down => {
-                if let Some(selected) = issue_list_state.selected() {
-                    let next = selected + 1;
-                    if next < issues_list.len() {
-                        issue_list_state.select(Some(next));
-                    }
-                }
+                  if let Some(selected) = issue_list_state.selected() {
+                      let next = selected.checked_add(1);
+                      if let Some(new_selection) = next {
+                          issue_list_state.select(Some(new_selection));
+                      }
+                  }
               }
               KeyCode::Up => {
                   if let Some(selected) = issue_list_state.selected() {
@@ -207,7 +215,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
               }
               KeyCode::Enter => {
                 if let Some(selected) = issue_list_state.selected() {
-                    let url = &items.items[selected].url;
+                    let url = &issues_list_response_open.items[selected].url;
                     if let Err(e) = open::that(url) {
                         eprintln!("Failed to open URL '{}': {}", url, e);
                     }
@@ -225,30 +233,54 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 fn render_home<'a>() -> Paragraph<'a> {
   let home = Paragraph::new(vec![
-      Spans::from(vec![Span::raw("")]),
-      Spans::from(vec![Span::raw("Welcome")]),
-      Spans::from(vec![Span::raw("")]),
-      Spans::from(vec![Span::raw("to")]),
-      Spans::from(vec![Span::raw("")]),
-      Spans::from(vec![Span::raw("your")]),
-      Spans::from(vec![Span::raw("")]),
-      Spans::from(vec![Span::raw("github")]),
-      Spans::from(vec![Span::raw("")]),
-      Spans::from(vec![Span::raw("assistant")]),
-      Spans::from(vec![Span::styled(
-          "Simon-Busch ®",
-          Style::default().fg(Color::LightBlue),
-      )]),
-      Spans::from(vec![Span::raw("")]),
-  ])
-  .alignment(Alignment::Center)
-  .block(
-      Block::default()
-          .borders(Borders::ALL)
-          .style(Style::default().fg(Color::White))
-          .title("Home")
-          .border_type(BorderType::Plain),
-  );
+    Spans::from(vec![Span::raw("")]),
+    Spans::from(vec![Span::raw("")]),
+    Spans::from(vec![Span::raw("")]),
+    Spans::from(vec![Span::raw("")]),
+    Spans::from(vec![Span::raw("")]),
+    Spans::from(vec![Span::raw("")]),
+    Spans::from(vec![Span::raw("")]),
+    // Spans::from(vec![Span::styled(
+    //     "  ____                       _             ",
+    //     Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
+    // )]),
+    // Spans::from(vec![Span::styled(
+    //     " / ___| _ __   __ _ _ __ __| | __ _ _ __  ",
+    //     Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
+    // )]),
+    // Spans::from(vec![Span::styled(
+    //     "| |  _ | '_ \\ / _` | '__/ _` |/ _` | '_ \\ ",
+    //     Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
+    // )]),
+    // Spans::from(vec![Span::styled(
+    //     "| |_| || |_) | (_| | | | (_| | (_| | | | |",
+    //     Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
+    // )]),
+    // Spans::from(vec![Span::styled(
+    //     " \\____|| .__/ \\__,_|_|  \\__,_|\\__,_|_| |_|",
+    //     Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
+    // )]),
+    // Spans::from(vec![Span::styled(
+    //     "       |_|                                ",
+    //     Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
+    // )]),
+    Spans::from(vec![Span::raw("")]),
+    Spans::from(vec![Span::raw("Welcome to your GitHub assistant!")]),
+    Spans::from(vec![Span::raw("")]),
+    Spans::from(vec![Span::styled(
+        "Simon-Busch ®",
+        Style::default().fg(Color::LightBlue),
+    )]),
+    Spans::from(vec![Span::raw("")]),
+    ])
+    .alignment(Alignment::Center)
+    .block(
+    Block::default()
+        .borders(Borders::ALL)
+        .style(Style::default().fg(Color::White))
+        .title("Home")
+        .border_type(BorderType::Plain),
+);
   home
 }
 
@@ -260,7 +292,8 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
             ListItem::new(Spans::from(vec![
                 Span::raw(format!(
                     "{: <4} | {: <20}",
-                    i.number, i.state // define what will live in the Issue menu
+                    i.number,
+                    i.repository.as_ref().unwrap_or(&String::new()).to_string()
                 )),
             ]))
         })
@@ -280,102 +313,114 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
         repository: None,
         organization: None,
         created_at: "".to_owned(),
+        updated_at: "".to_owned(),
         labels: vec![],
     };
+
     let selected_issue = selected_issue_index
         .map(|i| &issues[i])
         .unwrap_or(&binding);
 
     let issue_details = Table::new(vec![
-      Row::new(vec![
-          Cell::from("Number"),
-      ])
-      .style(Style::default().fg(Color::Yellow))
-      .height(1),
-      Row::new(vec![
-          Cell::from(selected_issue.number.to_string()),
-          Cell::from(selected_issue.title.clone()),
-          Cell::from(selected_issue.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>().join(", ")),
-          Cell::from(selected_issue.state.clone()),
-      ])
-      .style(Style::default().fg(Color::White))
-      .height(2),
+        Row::new(vec![
+            Cell::from("Number"),
+        ])
+        .style(Style::default().fg(Color::LightCyan))
+        .height(1),
+        Row::new(vec![
+            Cell::from(selected_issue.number.to_string()),
+            Cell::from(selected_issue.title.clone()),
+            Cell::from(selected_issue.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>().join(", ")),
+            Cell::from(selected_issue.state.clone()),
+        ])
+        .style(Style::default().fg(Color::White))
+        .height(2),
 
-      Row::new(vec![
-        Cell::from("Repository"),
-      ])
-      .style(Style::default().fg(Color::Yellow))
-      .height(1),
-      Row::new(vec![
-        match &selected_issue.repository {
-          Some(repository) => Cell::from(repository.to_string()),
-          None => Cell::from("N/A"),
-        },
-      ])
-      .style(Style::default().fg(Color::White))
-      .height(2),
+        Row::new(vec![
+            Cell::from("Repository"),
+        ])
+        .style(Style::default().fg(Color::LightCyan))
+        .height(1),
+        Row::new(vec![
+            match &selected_issue.repository {
+                Some(repository) => Cell::from(repository.to_string()),
+                None => Cell::from("N/A"),
+            },
+        ])
+        .style(Style::default().fg(Color::White))
+        .height(2),
 
-      Row::new(vec![
-        Cell::from("Organization"),
-      ])
-      .style(Style::default().fg(Color::Yellow))
-      .height(1),
-      Row::new(vec![
-        match &selected_issue.organization {
-          Some(organization) => Cell::from(organization.to_string()),
-          None => Cell::from("N/A"),
-        },
-      ])
-      .style(Style::default().fg(Color::White))
-      .height(2),
+        Row::new(vec![
+            Cell::from("Organization"),
+        ])
+        .style(Style::default().fg(Color::LightCyan))
+        .height(1),
+        Row::new(vec![
+            match &selected_issue.organization {
+                Some(organization) => Cell::from(organization.to_string()),
+                None => Cell::from("N/A"),
+            },
+        ])
+        .style(Style::default().fg(Color::White))
+        .height(2),
 
-      Row::new(vec![
-        Cell::from("Title"),
-      ])
-      .style(Style::default().fg(Color::Yellow))
-      .height(1),
-      Row::new(vec![
-          Cell::from(selected_issue.title.clone()),
-      ])
-      .style(Style::default().fg(Color::White))
-      .height(2),
+        Row::new(vec![
+            Cell::from("Title"),
+        ])
+        .style(Style::default().fg(Color::LightCyan))
+        .height(1),
+        Row::new(vec![
+            Cell::from(selected_issue.title.clone()),
+        ])
+        .style(Style::default().fg(Color::White))
+        .height(2),
 
-      Row::new(vec![
-        Cell::from("Labels"),
-      ])
-      .style(Style::default().fg(Color::Yellow))
-      .height(1),
-      Row::new(vec![
-          Cell::from(selected_issue.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>().join(", ")),
-      ])
-      .style(Style::default().fg(Color::White))
-      .height(2),
+        Row::new(vec![
+            Cell::from("Labels"),
+        ])
+        .style(Style::default().fg(Color::LightCyan))
+        .height(1),
+        Row::new(vec![
+            Cell::from(selected_issue.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>().join(", ")),
+        ])
+        .style(Style::default().fg(Color::White))
+        .height(2),
 
-      Row::new(vec![
-        Cell::from("Details"),
-      ])
-      .style(Style::default().fg(Color::Yellow))
-      .height(1),
-      Row::new(vec![
-        match &selected_issue.body {
-          Some(body) => Cell::from(body.to_string()),
-          None => Cell::from("N/A"),
-        },
-      ])
-      .style(Style::default().fg(Color::White))
-      .height(20),
+        Row::new(vec![
+            Cell::from("Details"),
+        ])
+        .style(Style::default().fg(Color::LightCyan))
+        .height(1),
+        Row::new(vec![
+            match &selected_issue.body {
+                Some(body) => Cell::from(body.to_string()),
+                None => Cell::from("N/A"),
+            },
+        ])
+        .style(Style::default().fg(Color::White))
+        .height(10),
 
+        Row::new(vec![
+          Cell::from("Created at"),
+        ])
+        .style(Style::default().fg(Color::LightCyan))
+        .height(1),
+        Row::new(vec![
+            Cell::from(selected_issue.created_at.clone()),
+        ])
+        .style(Style::default().fg(Color::White))
+        .height(2),
 
-      // Row::new(vec![
-      //   Cell::from("State"),
-      // ])
-      // .style(Style::default().fg(Color::Yellow))
-      // .height(1),
-      // Row::new(vec![
-      //     Cell::from(selected_issue.state.clone()),
-      // ])
-      // .style(Style::default().fg(Color::White))
-      // .height(2),
+        Row::new(vec![
+          Cell::from("Updated at"),
+        ])
+        .style(Style::default().fg(Color::LightCyan))
+        .height(1),
+        Row::new(vec![
+            Cell::from(selected_issue.updated_at.clone()),
+        ])
+        .style(Style::default().fg(Color::White))
+        .height(2),
 
     ])
     .block(
@@ -399,7 +444,8 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
   (issue_list, issue_details)
 }
 
-async fn get_github_response(username: &str, access_token: &str) -> Result<String, Box<dyn Error>> {
+//TODO adapt the function to fetch either open OR closed issues
+async fn get_github_response(username: &str, access_token: &str, status: &str) -> Result<ApiResponse, Box<dyn Error>> {
   let mut headers = header::HeaderMap::new();
   headers.insert(
       ACCEPT,
@@ -415,8 +461,8 @@ async fn get_github_response(username: &str, access_token: &str) -> Result<Strin
       .build()?;
   let base_url = "https://api.github.com";
   let url = format!(
-      "{}/search/issues?q=assignee:{}+state:open&per_page=100",
-      base_url, username
+      "{}/search/issues?q=assignee:{}+state:{}&per_page=100", // "{}/search/issues?q=assignee:{}+state:open&per_page=100",
+      base_url, username, status
   );
   let github_response = client
       .get(url)
@@ -424,7 +470,14 @@ async fn get_github_response(username: &str, access_token: &str) -> Result<Strin
       .await?
       .text()
       .await?;
-  Ok(github_response)
+    let mut items: ApiResponse = serde_json::from_str(&github_response)?;
+    for item in &mut items.items {
+        let url_parts: Vec<&str> = item.url.split("/").collect();
+        // println!("{:?}", url_parts);
+        item.repository = Some(url_parts[url_parts.len() - 3].to_string());
+        item.organization = Some(url_parts[url_parts.len() - 4].to_string());
+    }
+  Ok(items)
 }
 
 #[derive(Debug, Deserialize)]
@@ -433,21 +486,22 @@ struct ApiResponse {
   items: Vec<ApiResponseItem>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 struct ApiResponseItem {
   #[serde(rename = "html_url")]
   url: String,
   title: String,
-  // #[serde(skip)]
   number: i32,
   state: String,
   created_at: String,
+  updated_at: String,
   labels: Vec<Label>,
   body: Option<String>,
   repository: Option<String>,
   organization: Option<String>,
 }
-#[derive(Debug, Deserialize, Serialize)]
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
 struct Label {
   name: String,
 }
