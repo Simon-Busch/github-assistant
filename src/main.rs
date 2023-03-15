@@ -84,15 +84,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     terminal.clear()?;
 
     let (username, access_token) = init_variables();
-    let github_response = get_github_response(&username, &access_token).await?;
-    let items: ApiResponse = serde_json::from_str(&github_response)?;
-    let issues_list = &items.items;
+    let mut github_response = get_github_response(&username, &access_token).await?;
+    let mut items: ApiResponse = serde_json::from_str(&github_response)?;
+    let mut issues_list = &items.items;
     println!("{:?}", issues_list);
     println!("{:?}", issues_list[0].url);
     println!("{:?}", issues_list[1].body);
     println!("{:?}", items.total_count);
 
-    let menu_titles = vec!["Home","Issues", "PullRequests", "Quit"]; // vec!["Home", "Issues", "PR", "Quit"]
+    let menu_titles = vec!["Home","Issues", "PullRequests",  "Quit"]; // Add "Refresh",
     let mut active_menu_item = MenuItem::Home;
     let mut issue_list_state = ListState::default();
     issue_list_state.select(Some(0));
@@ -177,6 +177,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
               KeyCode::Char('h') => active_menu_item = MenuItem::Home,
               KeyCode::Char('i') => active_menu_item = MenuItem::Issues,
               KeyCode::Char('p') => active_menu_item = MenuItem::PullRequests,
+              // KeyCode::Char('r') => {
+              //   github_response = get_github_response(&username, &access_token).await?;
+              //   items = serde_json::from_str(&github_response)?;
+              //   issues_list = &items.items;
+              // }
               KeyCode::Down => {
                 if let Some(selected) = issue_list_state.selected() {
                     let next = selected + 1;
@@ -242,49 +247,46 @@ fn render_home<'a>() -> Paragraph<'a> {
 
 
 fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option<usize>) -> (List<'a>, Table<'a>) {
-  let items: Vec<ListItem> = issues
-      .iter()
-      .map(|i| {
-          let mut labels = i.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>();
-          labels.sort();
-          let mut labels_string = labels.join(", ");
-          if labels_string.len() > 20 {
-              labels_string.truncate(20);
-              labels_string.push_str("...");
-          }
-          ListItem::new(Spans::from(vec![
-              Span::raw(format!(
-                  "{: <4} | {: <20} | {: <30} | {: <20}",
-                  i.number, i.state, labels_string, i.title
-              )),
-          ]))
-      })
-      .collect();
+    let items: Vec<ListItem> = issues
+        .iter()
+        .map(|i| {
+            let mut labels = i.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>();
+            labels.sort();
+            let mut labels_string = labels.join(", ");
+            if labels_string.len() > 20 {
+                labels_string.truncate(20);
+                labels_string.push_str("...");
+            }
+            ListItem::new(Spans::from(vec![
+                Span::raw(format!(
+                    "{: <4} | {: <20} | {: <30} | {: <20}",
+                    i.number, i.state, labels_string, i.title
+                )),
+            ]))
+        })
+        .collect();
 
-  let issue_list = List::new(items)
-      .block(Block::default().title("Issues").borders(Borders::ALL))
-      .style(Style::default().fg(Color::White))
-      .highlight_style(Style::default().fg(Color::Yellow));
+    let issue_list = List::new(items)
+        .block(Block::default().title("Issues").borders(Borders::ALL))
+        .style(Style::default().fg(Color::White))
+        .highlight_style(Style::default().fg(Color::Yellow));
 
-  let binding = ApiResponseItem {
-          url: "".to_owned(),
-          title: "".to_owned(),
-          number: 0,
-          body: None,
-          state: "".to_owned(),
-          created_at: "".to_owned(),
-          labels: vec![],
-      };
-  let selected_issue = selected_issue_index
-      .map(|i| &issues[i])
-      .unwrap_or(&binding);
+    let binding = ApiResponseItem {
+        url: "".to_owned(),
+        title: "".to_owned(),
+        number: 0,
+        body: None,
+        state: "".to_owned(),
+        created_at: "".to_owned(),
+        labels: vec![],
+    };
+    let selected_issue = selected_issue_index
+        .map(|i| &issues[i])
+        .unwrap_or(&binding);
 
-  let issue_details = Table::new(vec![
+    let issue_details = Table::new(vec![
       Row::new(vec![
           Cell::from("Number"),
-          Cell::from("Title"),
-          Cell::from("Labels"),
-          Cell::from("State"),
       ])
       .style(Style::default().fg(Color::Yellow))
       .height(1),
@@ -295,7 +297,56 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
           Cell::from(selected_issue.state.clone()),
       ])
       .style(Style::default().fg(Color::White))
+      .height(2),
+
+      Row::new(vec![
+        Cell::from("Title"),
+      ])
+      .style(Style::default().fg(Color::Yellow))
       .height(1),
+      Row::new(vec![
+          Cell::from(selected_issue.title.clone()),
+      ])
+      .style(Style::default().fg(Color::White))
+      .height(2),
+
+      Row::new(vec![
+        Cell::from("Labels"),
+      ])
+      .style(Style::default().fg(Color::Yellow))
+      .height(1),
+      Row::new(vec![
+          Cell::from(selected_issue.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>().join(", ")),
+      ])
+      .style(Style::default().fg(Color::White))
+      .height(2),
+
+      Row::new(vec![
+        Cell::from("Details"),
+      ])
+      .style(Style::default().fg(Color::Yellow))
+      .height(1),
+      Row::new(vec![
+        match &selected_issue.body {
+          Some(body) => Cell::from(body.to_string()),
+          None => Cell::from("N/A"),
+        },
+      ])
+      .style(Style::default().fg(Color::White))
+      .height(20),
+
+
+      // Row::new(vec![
+      //   Cell::from("State"),
+      // ])
+      // .style(Style::default().fg(Color::Yellow))
+      // .height(1),
+      // Row::new(vec![
+      //     Cell::from(selected_issue.state.clone()),
+      // ])
+      // .style(Style::default().fg(Color::White))
+      // .height(2),
+
     ])
     .block(
         Block::default()
@@ -303,9 +354,9 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
             .borders(Borders::ALL),
     )
     .widths(&[
-        Constraint::Length(6),
-        Constraint::Length(50),
-        Constraint::Length(20),
+        // Constraint::Length(6),
+        // Constraint::Length(50),
+        // Constraint::Length(20),
         Constraint::Min(0),
     ])
     .highlight_style(
