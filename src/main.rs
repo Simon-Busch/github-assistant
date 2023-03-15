@@ -30,16 +30,16 @@ enum Event<I> {
 #[derive(Copy, Clone, Debug)]
 enum MenuItem {
     Home,
-    Issues,
-    PullRequests,
+    Assignments,
+    // PullRequests,
 }
 
 impl From<MenuItem> for usize {
     fn from(input: MenuItem) -> usize {
         match input {
             MenuItem::Home => 0,
-            MenuItem::Issues => 1,
-            MenuItem::PullRequests => 2,
+            MenuItem::Assignments => 1,
+            // MenuItem::PullRequests => 2,
         }
     }
 }
@@ -84,22 +84,29 @@ async fn main() -> Result<(), Box<dyn Error>> {
     terminal.clear()?;
 
     let (username, access_token) = init_variables();
-    let mut github_response = get_github_response(&username, &access_token).await?;
+    let github_response = get_github_response(&username, &access_token).await?;
     let mut items: ApiResponse = serde_json::from_str(&github_response)?;
-    let mut issues_list = &items.items;
+    for item in &mut items.items {
+      let url_parts: Vec<&str> = item.url.split("/").collect();
+      // println!("{:?}", url_parts);
+      item.repository = Some(url_parts[url_parts.len() - 3].to_string());
+      item.organization = Some(url_parts[url_parts.len() - 4].to_string());
+  }
+
+    let issues_list = &items.items;
     println!("{:?}", issues_list);
     println!("{:?}", issues_list[0].url);
     println!("{:?}", issues_list[1].body);
     println!("{:?}", items.total_count);
 
-    let menu_titles = vec!["Home","Issues", "PullRequests",  "Quit"]; // Add "Refresh",
+    let menu_titles = vec!["Home","Assignments", "Quit"]; // Add "Refresh",
     let mut active_menu_item = MenuItem::Home;
     let mut issue_list_state = ListState::default();
     issue_list_state.select(Some(0));
     loop {
       terminal.draw(|rect| {
           let size = rect.size();
-          let chunks = Layout::default()
+          let chunks = Layout::default() // define the Menu
               .direction(Direction::Vertical)
               .margin(2)
               .constraints(
@@ -132,7 +139,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                       Span::styled(
                           first,
                           Style::default()
-                              .fg(Color::Yellow)
+                              .fg(Color::LightCyan)
                               .add_modifier(Modifier::UNDERLINED),
                       ),
                       Span::styled(rest, Style::default().fg(Color::White)),
@@ -144,24 +151,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
               .select(active_menu_item.into())
               .block(Block::default().title("Menu").borders(Borders::ALL))
               .style(Style::default().fg(Color::White))
-              .highlight_style(Style::default().fg(Color::Yellow))
+              .highlight_style(Style::default().fg(Color::LightCyan))
               .divider(Span::raw("|"));
 
           rect.render_widget(tabs, chunks[0]);
           match active_menu_item {
               MenuItem::Home => rect.render_widget(render_home(), chunks[1]),
-              MenuItem::PullRequests => rect.render_widget(render_home(), chunks[1]),
-              MenuItem::Issues => {
-                  let pets_chunks = Layout::default()
+              // MenuItem::PullRequests => rect.render_widget(render_home(), chunks[1]),
+              MenuItem::Assignments => {
+                  let data_chunck = Layout::default()
                       .direction(Direction::Horizontal)
                       .constraints(
-                          [Constraint::Percentage(15), Constraint::Percentage(80)].as_ref(),
+                          [Constraint::Percentage(20), Constraint::Percentage(80)].as_ref(),
                       )
                       .split(chunks[1]);
                     let selected_issue_index = issue_list_state.selected();
                     let (left, right) = render_issues(&issues_list, selected_issue_index);
-                  rect.render_stateful_widget(left, pets_chunks[0], &mut issue_list_state);
-                  rect.render_widget(right, pets_chunks[1]);
+                  rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state);
+                  rect.render_widget(right, data_chunck[1]);
               }
           }
           rect.render_widget(copyright, chunks[2]);
@@ -175,8 +182,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                   break;
               }
               KeyCode::Char('h') => active_menu_item = MenuItem::Home,
-              KeyCode::Char('i') => active_menu_item = MenuItem::Issues,
-              KeyCode::Char('p') => active_menu_item = MenuItem::PullRequests,
+              KeyCode::Char('a') => active_menu_item = MenuItem::Assignments,
+              // KeyCode::Char('p') => active_menu_item = MenuItem::PullRequests,
               // KeyCode::Char('r') => {
               //   github_response = get_github_response(&username, &access_token).await?;
               //   items = serde_json::from_str(&github_response)?;
@@ -250,17 +257,10 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
     let items: Vec<ListItem> = issues
         .iter()
         .map(|i| {
-            let mut labels = i.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>();
-            labels.sort();
-            let mut labels_string = labels.join(", ");
-            if labels_string.len() > 20 {
-                labels_string.truncate(20);
-                labels_string.push_str("...");
-            }
             ListItem::new(Spans::from(vec![
                 Span::raw(format!(
-                    "{: <4} | {: <20} | {: <30} | {: <20}",
-                    i.number, i.state, labels_string, i.title
+                    "{: <4} | {: <20}",
+                    i.number, i.state // define what will live in the Issue menu
                 )),
             ]))
         })
@@ -269,7 +269,7 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
     let issue_list = List::new(items)
         .block(Block::default().title("Issues").borders(Borders::ALL))
         .style(Style::default().fg(Color::White))
-        .highlight_style(Style::default().fg(Color::Yellow));
+        .highlight_style(Style::default().fg(Color::LightCyan));
 
     let binding = ApiResponseItem {
         url: "".to_owned(),
@@ -277,6 +277,8 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
         number: 0,
         body: None,
         state: "".to_owned(),
+        repository: None,
+        organization: None,
         created_at: "".to_owned(),
         labels: vec![],
     };
@@ -295,6 +297,34 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
           Cell::from(selected_issue.title.clone()),
           Cell::from(selected_issue.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>().join(", ")),
           Cell::from(selected_issue.state.clone()),
+      ])
+      .style(Style::default().fg(Color::White))
+      .height(2),
+
+      Row::new(vec![
+        Cell::from("Repository"),
+      ])
+      .style(Style::default().fg(Color::Yellow))
+      .height(1),
+      Row::new(vec![
+        match &selected_issue.repository {
+          Some(repository) => Cell::from(repository.to_string()),
+          None => Cell::from("N/A"),
+        },
+      ])
+      .style(Style::default().fg(Color::White))
+      .height(2),
+
+      Row::new(vec![
+        Cell::from("Organization"),
+      ])
+      .style(Style::default().fg(Color::Yellow))
+      .height(1),
+      Row::new(vec![
+        match &selected_issue.organization {
+          Some(organization) => Cell::from(organization.to_string()),
+          None => Cell::from("N/A"),
+        },
       ])
       .style(Style::default().fg(Color::White))
       .height(2),
@@ -414,6 +444,8 @@ struct ApiResponseItem {
   created_at: String,
   labels: Vec<Label>,
   body: Option<String>,
+  repository: Option<String>,
+  organization: Option<String>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 struct Label {
