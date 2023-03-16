@@ -157,7 +157,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
           rect.render_widget(tabs, chunks[0]);
           match active_menu_item {
-              MenuItem::Home => rect.render_widget(render_home(), chunks[1]),
+              MenuItem::Home => rect.render_widget(render_home(&issues_list_response_open.total_count, &issues_list_response_closed.total_count), chunks[1]),
               // MenuItem::PullRequests => rect.render_widget(render_home(), chunks[1]),
               MenuItem::Assignments => {
                   let data_chunck = Layout::default()
@@ -231,7 +231,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 
-fn render_home<'a>() -> Paragraph<'a> {
+fn render_home<'a>(opened: &i32, closed: &i32) -> Paragraph<'a> {
   let home = Paragraph::new(vec![
     Spans::from(vec![Span::raw("")]),
     Spans::from(vec![Span::raw("")]),
@@ -240,32 +240,24 @@ fn render_home<'a>() -> Paragraph<'a> {
     Spans::from(vec![Span::raw("")]),
     Spans::from(vec![Span::raw("")]),
     Spans::from(vec![Span::raw("")]),
-    // Spans::from(vec![Span::styled(
-    //     "  ____                       _             ",
-    //     Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
-    // )]),
-    // Spans::from(vec![Span::styled(
-    //     " / ___| _ __   __ _ _ __ __| | __ _ _ __  ",
-    //     Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
-    // )]),
-    // Spans::from(vec![Span::styled(
-    //     "| |  _ | '_ \\ / _` | '__/ _` |/ _` | '_ \\ ",
-    //     Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
-    // )]),
-    // Spans::from(vec![Span::styled(
-    //     "| |_| || |_) | (_| | | | (_| | (_| | | | |",
-    //     Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
-    // )]),
-    // Spans::from(vec![Span::styled(
-    //     " \\____|| .__/ \\__,_|_|  \\__,_|\\__,_|_| |_|",
-    //     Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
-    // )]),
-    // Spans::from(vec![Span::styled(
-    //     "       |_|                                ",
-    //     Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
-    // )]),
     Spans::from(vec![Span::raw("")]),
     Spans::from(vec![Span::raw("Welcome to your GitHub assistant!")]),
+    Spans::from(vec![Span::raw("")]),
+    Spans::from(vec![Span::raw("")]),
+    Spans::from(vec![Span::raw(format!(
+      "{} open issues 🚧",
+      opened,
+    ))]),
+    Spans::from(vec![Span::raw("")]),
+    Spans::from(vec![Span::raw(format!(
+      "{} closed issues ✅",
+      closed,
+    ))]),
+    Spans::from(vec![Span::raw("")]),
+    Spans::from(vec![Span::raw("")]),
+    Spans::from(vec![Span::raw("")]),
+    Spans::from(vec![Span::raw("")]),
+    Spans::from(vec![Span::raw("")]),
     Spans::from(vec![Span::raw("")]),
     Spans::from(vec![Span::styled(
         "Simon-Busch ®",
@@ -335,7 +327,6 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
         ])
         .style(Style::default().fg(Color::White))
         .height(2),
-
         Row::new(vec![
             Cell::from("Repository"),
         ])
@@ -439,7 +430,7 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
             .add_modifier(Modifier::BOLD)
             .fg(Color::LightMagenta),
     )
-    .highlight_symbol("> ");
+    .highlight_symbol(">>>>> ");
 
   (issue_list, issue_details)
 }
