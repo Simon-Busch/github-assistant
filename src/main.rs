@@ -44,6 +44,11 @@ impl From<MenuItem> for usize {
     }
 }
 
+enum ActiveList {
+  Open,
+  Closed,
+}
+
 fn init_variables() -> (String, String) {
     dotenv().ok();
     let username = std::env::var("GITHUB_USERNAME").expect("GITHUB_USERNAME must be set.");
@@ -102,8 +107,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let menu_titles = vec!["Home","Assignments", "Closed", "Quit"]; // Add "Refresh",
     let mut active_menu_item = MenuItem::Home;
-    let mut issue_list_state = ListState::default();
-    issue_list_state.select(Some(0));
+
+    // let mut issue_list_state = ListState::default();
+    // issue_list_state.select(Some(0));
+
+    let mut issue_list_state_open = ListState::default();
+    issue_list_state_open.select(Some(0));
+
+    let mut issue_list_state_closed = ListState::default();
+    issue_list_state_closed.select(Some(0));
+
+    let mut active_open = true;
+
     loop {
       terminal.draw(|rect| {
           let size = rect.size();
@@ -166,10 +181,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                           [Constraint::Percentage(20), Constraint::Percentage(80)].as_ref(),
                       )
                       .split(chunks[1]);
-                    let selected_issue_index = issue_list_state.selected();
-                    let (left, right) = render_issues(&issues_list_open, selected_issue_index);
-                  rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state);
-                  rect.render_widget(right, data_chunck[1]);
+                    if active_open == true {
+                      let selected_issue_index =  issue_list_state_open.selected();
+                      let (left, right) = render_issues(&issues_list_open, selected_issue_index);
+                      rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
+                      rect.render_widget(right, data_chunck[1]);
+                    }
               },
               MenuItem::Closed => {
                 let data_chunck = Layout::default()
@@ -178,10 +195,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         [Constraint::Percentage(20), Constraint::Percentage(80)].as_ref(),
                     )
                     .split(chunks[1]);
-                  let selected_issue_index = issue_list_state.selected();
+                //   let selected_issue_index = issue_list_state.selected();
+                //   let (left, right) = render_issues(&issues_list_closed, selected_issue_index);
+                // rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state);
+                // rect.render_widget(right, data_chunck[1]);
+                if active_open == false {
+                  let selected_issue_index =  issue_list_state_closed.selected();
                   let (left, right) = render_issues(&issues_list_closed, selected_issue_index);
-                rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state);
-                rect.render_widget(right, data_chunck[1]);
+                  rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_closed);
+                  rect.render_widget(right, data_chunck[1]);
+                }
             }
           }
           rect.render_widget(copyright, chunks[2]);
@@ -195,27 +218,65 @@ async fn main() -> Result<(), Box<dyn Error>> {
                   break;
               }
               KeyCode::Char('h') => active_menu_item = MenuItem::Home,
-              KeyCode::Char('a') => active_menu_item = MenuItem::Assignments,
-              KeyCode::Char('c') => active_menu_item = MenuItem::Closed,
+              KeyCode::Char('a') => {
+                  active_open = true;
+                  active_menu_item = MenuItem::Assignments
+              },
+              KeyCode::Char('c') => {
+                  active_open = false;
+                  active_menu_item = MenuItem::Closed
+              },
               KeyCode::Down => {
-                  if let Some(selected) = issue_list_state.selected() {
+                  let state;
+                  let items;
+                  if active_open {
+                      state = &mut issue_list_state_open;
+                      items = &issues_list_open;
+                  } else {
+                      state = &mut issue_list_state_closed;
+                      items = &issues_list_closed;
+                  }
+                  if let Some(selected) = state.selected() {
                       let next = selected.checked_add(1);
                       if let Some(new_selection) = next {
-                          issue_list_state.select(Some(new_selection));
+                          if new_selection < items.len() {
+                              state.select(Some(new_selection));
+                          } else {
+                              state.select(Some(0));
+                          }
                       }
                   }
-              }
+              },
               KeyCode::Up => {
-                  if let Some(selected) = issue_list_state.selected() {
+                  let state;
+                  if active_open {
+                      state = &mut issue_list_state_open;
+                  } else {
+                      state = &mut issue_list_state_closed;
+                  }
+                  if let Some(selected) = state.selected() {
                       let next = selected.checked_sub(1);
                       if let Some(new_selection) = next {
-                          issue_list_state.select(Some(new_selection));
+                          state.select(Some(new_selection));
+                      } else if active_open {
+                          state.select(Some(issues_list_open.len() - 1));
+                      } else {
+                          state.select(Some(issues_list_closed.len() - 1));
                       }
                   }
               }
               KeyCode::Enter => {
-                if let Some(selected) = issue_list_state.selected() {
-                    let url = &issues_list_response_open.items[selected].url;
+                let state;
+                let list: &Vec<ApiResponseItem>;
+                if active_open == true {
+                  state = &mut issue_list_state_open;
+                  list = &issues_list_open;
+                } else {
+                  state = &mut issue_list_state_closed;
+                  list = &issues_list_closed;
+                }
+                if let Some(selected) = state.selected() {
+                    let url = &list[selected].url;
                     if let Err(e) = open::that(url) {
                         eprintln!("Failed to open URL '{}': {}", url, e);
                     }
@@ -278,9 +339,11 @@ fn render_home<'a>(opened: &i32, closed: &i32) -> Paragraph<'a> {
 
 
 fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option<usize>) -> (List<'a>, Table<'a>) {
+    let mut count = 0;
     let items: Vec<ListItem> = issues
         .iter()
         .map(|i| {
+          count += 1;
             ListItem::new(Spans::from(vec![
                 Span::raw(format!(
                     "{: <4} | {: <20}",
@@ -292,7 +355,7 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
         .collect();
 
     let issue_list = List::new(items)
-        .block(Block::default().title("Issues").borders(Borders::ALL))
+        .block(Block::default().title(format!("Issues ({} total)", count)).borders(Borders::ALL))
         .style(Style::default().fg(Color::White))
         .highlight_style(Style::default().fg(Color::LightCyan));
 
@@ -312,6 +375,11 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
     let selected_issue = selected_issue_index
         .map(|i| &issues[i])
         .unwrap_or(&binding);
+
+    let body_height = match &selected_issue.body {
+          Some(body) => body.lines().count() + 1,
+          None => 1,
+    };
 
     let issue_details = Table::new(vec![
         Row::new(vec![
@@ -389,7 +457,7 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
             },
         ])
         .style(Style::default().fg(Color::White))
-        .height(10),
+        .height(body_height.try_into().unwrap()),
 
         Row::new(vec![
           Cell::from("Created at"),
@@ -464,7 +532,6 @@ async fn get_github_response(username: &str, access_token: &str, status: &str) -
     let mut items: ApiResponse = serde_json::from_str(&github_response)?;
     for item in &mut items.items {
         let url_parts: Vec<&str> = item.url.split("/").collect();
-        // println!("{:?}", url_parts);
         item.repository = Some(url_parts[url_parts.len() - 3].to_string());
         item.organization = Some(url_parts[url_parts.len() - 4].to_string());
     }
