@@ -21,6 +21,7 @@ use crossterm::{
 use std::time::{Duration, Instant};
 use std::io;
 use std::thread;
+use chrono::{Duration as ChronoDuration, Utc, DateTime};
 
 enum Event<I> {
     Input(I),
@@ -113,6 +114,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     issue_list_state_closed.select(Some(0));
 
     let mut active_open = true;
+    let mut show_comment = false;
 
     loop {
         terminal.draw(|rect| {
@@ -176,11 +178,31 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             [Constraint::Percentage(30), Constraint::Percentage(70)].as_ref(),
                         )
                         .split(chunks[1]);
-                      if active_open == true {
+                      if active_open == true && show_comment == false {
                         let selected_issue_index =  issue_list_state_open.selected();
-                        let (left, right) = render_issues(&issues_list_open, selected_issue_index);
+                        let (left, right) = render_issues(&issues_list_open, selected_issue_index, show_comment);
                         rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
                         rect.render_widget(right, data_chunck[1]);
+                      } else if active_open == true && show_comment == true {
+                          let selected_issue_index =  issue_list_state_open.selected();
+                          let (left, right) = render_issues(&issues_list_open, selected_issue_index, show_comment);
+                          rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
+                          rect.render_widget(right, data_chunck[1]);
+                          let state;
+                          let list: &Vec<ApiResponseItem>;
+                          if active_open == true {
+                              state = &mut issue_list_state_open;
+                              list = &issues_list_open;
+                          } else {
+                              state = &mut issue_list_state_closed;
+                              list = &issues_list_closed;
+                          }
+                          if let Some(selected) = state.selected() {
+                            let organization = list[selected].organization.as_ref().map_or("", String::as_str);
+                            let repository = list[selected].repository.as_ref().map_or("", String::as_str);
+                            let number = list[selected].number;
+                            let comments = get_issue_comments(&access_token, organization, repository, &number);
+                          }
                       }
                 },
                 MenuItem::Closed => {
@@ -190,17 +212,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                           [Constraint::Percentage(30), Constraint::Percentage(70)].as_ref(),
                       )
                       .split(chunks[1]);
-                  //   let selected_issue_index = issue_list_state.selected();
-                  //   let (left, right) = render_issues(&issues_list_closed, selected_issue_index);
-                  // rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state);
-                  // rect.render_widget(right, data_chunck[1]);
                   if active_open == false {
-                    let selected_issue_index =  issue_list_state_closed.selected();
-                    let (left, right) = render_issues(&issues_list_closed, selected_issue_index);
-                    rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_closed);
-                    rect.render_widget(right, data_chunck[1]);
+                      let selected_issue_index =  issue_list_state_closed.selected();
+                      let (left, right) = render_issues(&issues_list_closed, selected_issue_index, show_comment);
+                      rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_closed);
+                      rect.render_widget(right, data_chunck[1]);
                   }
-              }
+                },
             }
             rect.render_widget(copyright, chunks[2]);
         })?;
@@ -278,21 +296,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                   }
               }
               KeyCode::Right => {
-                  let state;
-                  let list: &Vec<ApiResponseItem>;
-                  if active_open == true {
-                      state = &mut issue_list_state_open;
-                      list = &issues_list_open;
-                  } else {
-                      state = &mut issue_list_state_closed;
-                      list = &issues_list_closed;
-                  }
-                  if let Some(selected) = state.selected() {
-                      let organization = list[selected].organization.as_ref().map_or("", String::as_str);
-                      let repository = list[selected].repository.as_ref().map_or("", String::as_str);
-                      let number = list[selected].number;
-                      let comments = get_issue_comments(&access_token, organization, repository, &number).await?;
-                  }
+                  show_comment = true;
               }
               KeyCode::Left => {
                 // let state;
@@ -312,6 +316,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 // }
                 //todo cancel this view
                 println!("Left");
+                show_comment = false;
               }
               _ => {}
           },
@@ -368,19 +373,26 @@ fn render_home<'a>(opened: &i32, closed: &i32) -> Paragraph<'a> {
 }
 
 
-fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option<usize>) -> (List<'a>, Table<'a>) {
+fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option<usize>, show_comment: bool) -> (List<'a>, Table<'a>) {
     let mut count = 0;
     let items: Vec<ListItem> = issues
         .iter()
         .map(|i| {
-          count += 1;
+            count += 1;
+            let created_at = i.created_at.parse::<DateTime<Utc>>().unwrap();
+            let now = Utc::now();
+            let diff = now.signed_duration_since(created_at);
+
+            let color = if diff > ChronoDuration::days(90) {
+                Color::Red
+            } else if diff > ChronoDuration::days(60) {
+                Color::Yellow
+            } else {
+                Color::White
+            };
+
             ListItem::new(Spans::from(vec![
-                Span::raw(format!(
-                    "{: <4} | {: <20}",
-                    i.number,
-                    i.title
-                    // i.repository.as_ref().unwrap_or(&String::new()).to_string()
-                )),
+                Span::styled(format!("{: <4} | {: <20}", i.number, i.title), Style::default().fg(color)),
             ]))
         })
         .collect();
@@ -388,7 +400,7 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
     let issue_list = List::new(items)
         .block(Block::default().title(format!("Issues ({} total)", count)).borders(Borders::ALL))
         .style(Style::default().fg(Color::White))
-        .highlight_style(Style::default().fg(Color::LightCyan));
+        .highlight_style(Style::default().add_modifier(Modifier::UNDERLINED));
 
     let binding = ApiResponseItem {
         url: "".to_owned(),
@@ -411,104 +423,133 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
           Some(body) => body.lines().count() + 1,
           None => 1,
     };
+    let mut issue_details;
+    if (show_comment == true) {
+        issue_details = Table::new(vec![
+          Row::new(vec![Cell::from("Number")])
+          .style(Style::default().fg(Color::LightCyan))
+          .height(1),
+          Row::new(vec![
+              Cell::from(selected_issue.number.to_string()),
+              Cell::from(selected_issue.title.clone()),
+              Cell::from(selected_issue.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>().join(", ")),
+              Cell::from(selected_issue.state.clone()),
+          ])
+          .style(Style::default().fg(Color::White))
+          .height(2),
+      ])
+      .block(
+          Block::default()
+              .title("Details")
+              .borders(Borders::ALL),
+      )
+      .widths(&[Constraint::Min(0)])
+      .highlight_style(
+          Style::default()
+              .add_modifier(Modifier::BOLD)
+              .fg(Color::LightMagenta),
+      )
+      .highlight_symbol(">>>>> ");
+    } else {
+      issue_details = Table::new(vec![
+          Row::new(vec![Cell::from("Number")])
+          .style(Style::default().fg(Color::LightCyan))
+          .height(1),
+          Row::new(vec![
+              Cell::from(selected_issue.number.to_string()),
+              Cell::from(selected_issue.title.clone()),
+              Cell::from(selected_issue.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>().join(", ")),
+              Cell::from(selected_issue.state.clone()),
+          ])
+          .style(Style::default().fg(Color::White))
+          .height(2),
 
-    let issue_details = Table::new(vec![
-        Row::new(vec![Cell::from("Number")])
-        .style(Style::default().fg(Color::LightCyan))
-        .height(1),
-        Row::new(vec![
-            Cell::from(selected_issue.number.to_string()),
-            Cell::from(selected_issue.title.clone()),
-            Cell::from(selected_issue.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>().join(", ")),
-            Cell::from(selected_issue.state.clone()),
-        ])
-        .style(Style::default().fg(Color::White))
-        .height(2),
+          Row::new(vec![Cell::from("Repository")])
+          .style(Style::default().fg(Color::LightCyan))
+          .height(1),
+          Row::new(vec![
+              match &selected_issue.repository {
+                  Some(repository) => Cell::from(repository.to_string()),
+                  None => Cell::from("N/A"),
+              },
+          ])
+          .style(Style::default().fg(Color::White))
+          .height(2),
 
-        Row::new(vec![Cell::from("Repository")])
-        .style(Style::default().fg(Color::LightCyan))
-        .height(1),
-        Row::new(vec![
-            match &selected_issue.repository {
-                Some(repository) => Cell::from(repository.to_string()),
-                None => Cell::from("N/A"),
-            },
-        ])
-        .style(Style::default().fg(Color::White))
-        .height(2),
+          Row::new(vec![Cell::from("Organization")])
+          .style(Style::default().fg(Color::LightCyan))
+          .height(1),
+          Row::new(vec![
+              match &selected_issue.organization {
+                  Some(organization) => Cell::from(organization.to_string()),
+                  None => Cell::from("N/A"),
+              },
+          ])
+          .style(Style::default().fg(Color::White))
+          .height(2),
 
-        Row::new(vec![Cell::from("Organization")])
-        .style(Style::default().fg(Color::LightCyan))
-        .height(1),
-        Row::new(vec![
-            match &selected_issue.organization {
-                Some(organization) => Cell::from(organization.to_string()),
-                None => Cell::from("N/A"),
-            },
-        ])
-        .style(Style::default().fg(Color::White))
-        .height(2),
+          Row::new(vec![Cell::from("Title")])
+          .style(Style::default().fg(Color::LightCyan))
+          .height(1),
+          Row::new(vec![
+              Cell::from(selected_issue.title.clone()),
+          ])
+          .style(Style::default().fg(Color::White))
+          .height(2),
 
-        Row::new(vec![Cell::from("Title")])
-        .style(Style::default().fg(Color::LightCyan))
-        .height(1),
-        Row::new(vec![
-            Cell::from(selected_issue.title.clone()),
-        ])
-        .style(Style::default().fg(Color::White))
-        .height(2),
+          Row::new(vec![Cell::from("Labels")])
+          .style(Style::default().fg(Color::LightCyan))
+          .height(1),
+          Row::new(vec![
+              Cell::from(selected_issue.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>().join(", ")),
+          ])
+          .style(Style::default().fg(Color::White))
+          .height(2),
 
-        Row::new(vec![Cell::from("Labels")])
-        .style(Style::default().fg(Color::LightCyan))
-        .height(1),
-        Row::new(vec![
-            Cell::from(selected_issue.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>().join(", ")),
-        ])
-        .style(Style::default().fg(Color::White))
-        .height(2),
+          Row::new(vec![Cell::from("Details")])
+          .style(Style::default().fg(Color::LightCyan))
+          .height(1),
+          Row::new(vec![
+              match &selected_issue.body {
+                  Some(body) => Cell::from(body.to_string()),
+                  None => Cell::from("N/A"),
+              },
+          ])
+          .style(Style::default().fg(Color::White))
+          .height(body_height.try_into().unwrap()),
 
-        Row::new(vec![Cell::from("Details")])
-        .style(Style::default().fg(Color::LightCyan))
-        .height(1),
-        Row::new(vec![
-            match &selected_issue.body {
-                Some(body) => Cell::from(body.to_string()),
-                None => Cell::from("N/A"),
-            },
-        ])
-        .style(Style::default().fg(Color::White))
-        .height(body_height.try_into().unwrap()),
+          Row::new(vec![Cell::from("Created at")])
+          .style(Style::default().fg(Color::LightCyan))
+          .height(1),
+          Row::new(vec![
+              Cell::from(selected_issue.created_at.clone()),
+          ])
+          .style(Style::default().fg(Color::White))
+          .height(2),
 
-        Row::new(vec![Cell::from("Created at")])
-        .style(Style::default().fg(Color::LightCyan))
-        .height(1),
-        Row::new(vec![
-            Cell::from(selected_issue.created_at.clone()),
-        ])
-        .style(Style::default().fg(Color::White))
-        .height(2),
+          Row::new(vec![Cell::from("Updated at")])
+          .style(Style::default().fg(Color::LightCyan))
+          .height(1),
+          Row::new(vec![
+              Cell::from(selected_issue.updated_at.clone()),
+          ])
+          .style(Style::default().fg(Color::White))
+          .height(2),
+      ])
+      .block(
+          Block::default()
+              .title("Details")
+              .borders(Borders::ALL),
+      )
+      .widths(&[Constraint::Min(0)])
+      .highlight_style(
+          Style::default()
+              .add_modifier(Modifier::BOLD)
+              .fg(Color::LightMagenta),
+      )
+      .highlight_symbol(">>>>> ");
+    }
 
-        Row::new(vec![Cell::from("Updated at")])
-        .style(Style::default().fg(Color::LightCyan))
-        .height(1),
-        Row::new(vec![
-            Cell::from(selected_issue.updated_at.clone()),
-        ])
-        .style(Style::default().fg(Color::White))
-        .height(2),
-    ])
-    .block(
-        Block::default()
-            .title("Details")
-            .borders(Borders::ALL),
-    )
-    .widths(&[Constraint::Min(0)])
-    .highlight_style(
-        Style::default()
-            .add_modifier(Modifier::BOLD)
-            .fg(Color::LightMagenta),
-    )
-    .highlight_symbol(">>>>> ");
 
   (issue_list, issue_details)
 }

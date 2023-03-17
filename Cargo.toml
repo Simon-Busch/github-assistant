@@ -17,5 +17,4 @@ crossterm = { version = "0.19", features = [ "serde" ] }
 open = "3.0"
 termion = "1.5.6"
 textwrap = "0.14.1"
-
-
+chrono = "0.4.19"
