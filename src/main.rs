@@ -22,6 +22,7 @@ use std::time::{Duration, Instant};
 use std::io;
 use std::thread;
 use chrono::{Duration as ChronoDuration, Utc, DateTime};
+use textwrap::wrap;
 
 enum Event<I> {
     Input(I),
@@ -372,7 +373,8 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
         created_at: "".to_owned(),
         updated_at: "".to_owned(),
         labels: vec![],
-        // comments: None,
+        commentaires: vec![],
+        comments_url: "".to_owned(),
     };
 
     let selected_issue = selected_issue_index
@@ -385,10 +387,18 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
     };
     let issue_details;
     if show_comment == true {
-        issue_details = Table::new(vec![
+      let comments_text: Vec<String> = selected_issue
+          .commentaires
+          .iter()
+          .map(|comment| format!("{}: {}", comment.user.login, comment.body))
+          .collect();
+
+      let comments_cell = Cell::from(comments_text.join("\n"));
+
+      issue_details = Table::new(vec![
           Row::new(vec![Cell::from("Number")])
-          .style(Style::default().fg(Color::LightCyan))
-          .height(1),
+              .style(Style::default().fg(Color::LightCyan))
+              .height(1),
           Row::new(vec![
               Cell::from(selected_issue.number.to_string()),
               Cell::from(selected_issue.title.clone()),
@@ -397,6 +407,13 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
           ])
           .style(Style::default().fg(Color::White))
           .height(2),
+          Row::new(vec![
+              Cell::from("Comments")
+                  .style(Style::default().fg(Color::LightCyan))
+          ]),
+          Row::new(vec![comments_cell])
+              .style(Style::default().fg(Color::White))
+              .height(2),
       ])
       .block(
           Block::default()
@@ -530,7 +547,8 @@ async fn get_github_response(username: &str, access_token: &str, status: &str) -
       .build()?;
   let base_url = "https://api.github.com";
   let url = format!(
-      "{}/search/issues?q=assignee:{}+state:{}&per_page=100",
+      "{}/search/issues?q=assignee:{}+state:{}&per_page=100
+      ",
       base_url, username, status
   );
   let github_response = client
@@ -541,67 +559,19 @@ async fn get_github_response(username: &str, access_token: &str, status: &str) -
       .await?;
 
   let mut items: ApiResponse = serde_json::from_str(&github_response)?;
-
+  println!("items: {:?}", items);
   for item in items.items.iter_mut() {
       let url_parts: Vec<&str> = item.url.split("/").collect();
       item.repository = Some(url_parts[url_parts.len() - 3].to_string());
       item.organization = Some(url_parts[url_parts.len() - 4].to_string());
-    //TODO: get comments
-    //   if item.state == "open" {
-    //     let organization = item.organization.as_ref().map_or("", String::as_str);
-    //     let repository = item.repository.as_ref().map_or("", String::as_str);
-    //     let issue_number = item.number;
-    //     let comments_url = format!(
-    //         "{}/repos/{}/{}/issues/{}/comments",
-    //         base_url,
-    //         organization,
-    //         repository,
-    //         issue_number
-    //     );
-    //     let comments_response = client.get(comments_url).send().await?.text().await?;
-    //     println!("comments_response: {}", comments_response);
-    //     if comments_response.is_empty() {
-    //         continue;
-    //     } else {
-    //         let comments: Vec<IssueComments> = serde_json::from_str(&comments_response)?;
-    //         item.comments = comments;
-    //     }
-    //     // let comments: Vec<IssueComments> = serde_json::from_str(&comments_response)?;
-    //     println!("comments: {:?}", comments);
-    //     // item.comments = comments;
-    // }
+      if item.state == "open" {
+          let comments_url = &item.comments_url;
+          let comments_response = client.get(comments_url).send().await?;
+          let comments_json: Vec<IssueComments> = comments_response.json().await?;
+          item.commentaires = comments_json;
+      }
   }
-
-  Ok(items)
-}
-
-async fn get_issue_comments(access_token: &str, owner: &str, repository: &str, issue_number: &i32) -> Result<Vec<IssueComments>, Box<dyn Error>> {
-  let mut headers = header::HeaderMap::new();
-  headers.insert(
-      ACCEPT,
-      HeaderValue::from_static("application/vnd.github.v3+json"),
-  );
-  headers.insert(
-      "Authorization",
-      HeaderValue::from_str(&format!("Bearer {}", access_token)).unwrap(),
-  );
-  headers.insert("User-Agent", HeaderValue::from_static("my app"));
-  let client = reqwest::Client::builder()
-      .default_headers(headers)
-      .build()?;
-  let base_url = "https://api.github.com";
-  let url = format!(
-      "{}/repos/{}/{}/issues/{}/comments",
-      base_url, owner, repository, issue_number
-  );
-  let github_response = client
-      .get(url)
-      .send()
-      .await?
-      .text()
-      .await?;
-    let items: Vec<IssueComments> = serde_json::from_str(&github_response)?;
-    // println!("{:?}", items);
+  println!("items: {:?}", items);
   Ok(items)
 }
 
@@ -624,7 +594,10 @@ struct ApiResponseItem {
     body: Option<String>,
     repository: Option<String>,
     organization: Option<String>,
-    // comments: Option<Vec<IssueComments>>,
+    #[serde(rename = "comments_url")]
+    comments_url: String,
+    #[serde(skip_deserializing)]
+    commentaires: Vec<IssueComments>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
