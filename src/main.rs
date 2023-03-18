@@ -92,20 +92,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     //sort alphabetically by repository
     issues_list_open.sort_by_key(|i| i.repository.clone().unwrap_or_default());
 
-    // println!("{:?}", issues_list);
-    // println!("{:?}", issues_list[0].url);
-    // println!("{:?}", issues_list[1].body);
-    // println!("{:?}", issues_list_response_open.total_count);
-    // Interest in keeping the closed issues list ?
     let mut issues_list_closed = issues_list_response_closed.items.to_owned();
     //sort alphabetically by repository
     issues_list_closed.sort_by_key(|i| i.repository.clone().unwrap_or_default());
 
     let menu_titles = vec!["Home","Assignments", "Closed", "Quit"]; // Add "Refresh",
     let mut active_menu_item = MenuItem::Home;
-
-    // let mut issue_list_state = ListState::default();
-    // issue_list_state.select(Some(0));
 
     let mut issue_list_state_open = ListState::default();
     issue_list_state_open.select(Some(0));
@@ -170,7 +162,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             rect.render_widget(tabs, chunks[0]);
             match active_menu_item {
                 MenuItem::Home => rect.render_widget(render_home(&issues_list_response_open.total_count, &issues_list_response_closed.total_count), chunks[1]),
-                // MenuItem::PullRequests => rect.render_widget(render_home(), chunks[1]),
                 MenuItem::Assignments => {
                     let data_chunck = Layout::default()
                         .direction(Direction::Horizontal)
@@ -188,21 +179,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                           let (left, right) = render_issues(&issues_list_open, selected_issue_index, show_comment);
                           rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
                           rect.render_widget(right, data_chunck[1]);
-                          let state;
-                          let list: &Vec<ApiResponseItem>;
-                          if active_open == true {
-                              state = &mut issue_list_state_open;
-                              list = &issues_list_open;
-                          } else {
-                              state = &mut issue_list_state_closed;
-                              list = &issues_list_closed;
-                          }
-                          if let Some(selected) = state.selected() {
-                            let organization = list[selected].organization.as_ref().map_or("", String::as_str);
-                            let repository = list[selected].repository.as_ref().map_or("", String::as_str);
-                            let number = list[selected].number;
-                            let comments = get_issue_comments(&access_token, organization, repository, &number);
-                          }
                       }
                 },
                 MenuItem::Closed => {
@@ -299,23 +275,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                   show_comment = true;
               }
               KeyCode::Left => {
-                // let state;
-                // let list: &Vec<ApiResponseItem>;
-                // if active_open == true {
-                //     state = &mut issue_list_state_open;
-                //     list = &issues_list_open;
-                // } else {
-                //     state = &mut issue_list_state_closed;
-                //     list = &issues_list_closed;
-                // }
-                // if let Some(selected) = state.selected() {
-                //     let organization = list[selected].organization.as_ref().map_or("", String::as_str);
-                //     let repository = list[selected].repository.as_ref().map_or("", String::as_str);
-                //     let number = list[selected].number;
-                //     get_issue_comments(&access_token, organization, repository, &number).await?;
-                // }
-                //todo cancel this view
-                println!("Left");
                 show_comment = false;
               }
               _ => {}
@@ -413,6 +372,7 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
         created_at: "".to_owned(),
         updated_at: "".to_owned(),
         labels: vec![],
+        // comments: None,
     };
 
     let selected_issue = selected_issue_index
@@ -423,8 +383,8 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
           Some(body) => body.lines().count() + 1,
           None => 1,
     };
-    let mut issue_details;
-    if (show_comment == true) {
+    let issue_details;
+    if show_comment == true {
         issue_details = Table::new(vec![
           Row::new(vec![Cell::from("Number")])
           .style(Style::default().fg(Color::LightCyan))
@@ -555,37 +515,64 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
 }
 
 async fn get_github_response(username: &str, access_token: &str, status: &str) -> Result<ApiResponse, Box<dyn Error>> {
-    let mut headers = header::HeaderMap::new();
-    headers.insert(
-        ACCEPT,
-        HeaderValue::from_static("application/vnd.github.v3+json"),
-    );
-    headers.insert(
-        "Authorization",
-        HeaderValue::from_str(&format!("Bearer {}", access_token)).unwrap(),
-    );
-    headers.insert("User-Agent", HeaderValue::from_static("my app"));
-    let client = reqwest::Client::builder()
-        .default_headers(headers)
-        .build()?;
-    let base_url = "https://api.github.com";
-    let url = format!(
-        "{}/search/issues?q=assignee:{}+state:{}&per_page=100", // "{}/search/issues?q=assignee:{}+state:open&per_page=100",
-        base_url, username, status
-    );
-    let github_response = client
-        .get(url)
-        .send()
-        .await?
-        .text()
-        .await?;
-      let mut items: ApiResponse = serde_json::from_str(&github_response)?;
-      for item in &mut items.items {
-          let url_parts: Vec<&str> = item.url.split("/").collect();
-          item.repository = Some(url_parts[url_parts.len() - 3].to_string());
-          item.organization = Some(url_parts[url_parts.len() - 4].to_string());
-      }
-    Ok(items)
+  let mut headers = header::HeaderMap::new();
+  headers.insert(
+      ACCEPT,
+      HeaderValue::from_static("application/vnd.github.v3+json"),
+  );
+  headers.insert(
+      "Authorization",
+      HeaderValue::from_str(&format!("Bearer {}", access_token)).unwrap(),
+  );
+  headers.insert("User-Agent", HeaderValue::from_static("my app"));
+  let client = reqwest::Client::builder()
+      .default_headers(headers)
+      .build()?;
+  let base_url = "https://api.github.com";
+  let url = format!(
+      "{}/search/issues?q=assignee:{}+state:{}&per_page=100",
+      base_url, username, status
+  );
+  let github_response = client
+      .get(url)
+      .send()
+      .await?
+      .text()
+      .await?;
+
+  let mut items: ApiResponse = serde_json::from_str(&github_response)?;
+
+  for item in items.items.iter_mut() {
+      let url_parts: Vec<&str> = item.url.split("/").collect();
+      item.repository = Some(url_parts[url_parts.len() - 3].to_string());
+      item.organization = Some(url_parts[url_parts.len() - 4].to_string());
+    //TODO: get comments
+    //   if item.state == "open" {
+    //     let organization = item.organization.as_ref().map_or("", String::as_str);
+    //     let repository = item.repository.as_ref().map_or("", String::as_str);
+    //     let issue_number = item.number;
+    //     let comments_url = format!(
+    //         "{}/repos/{}/{}/issues/{}/comments",
+    //         base_url,
+    //         organization,
+    //         repository,
+    //         issue_number
+    //     );
+    //     let comments_response = client.get(comments_url).send().await?.text().await?;
+    //     println!("comments_response: {}", comments_response);
+    //     if comments_response.is_empty() {
+    //         continue;
+    //     } else {
+    //         let comments: Vec<IssueComments> = serde_json::from_str(&comments_response)?;
+    //         item.comments = comments;
+    //     }
+    //     // let comments: Vec<IssueComments> = serde_json::from_str(&comments_response)?;
+    //     println!("comments: {:?}", comments);
+    //     // item.comments = comments;
+    // }
+  }
+
+  Ok(items)
 }
 
 async fn get_issue_comments(access_token: &str, owner: &str, repository: &str, issue_number: &i32) -> Result<Vec<IssueComments>, Box<dyn Error>> {
@@ -614,7 +601,7 @@ async fn get_issue_comments(access_token: &str, owner: &str, repository: &str, i
       .text()
       .await?;
     let items: Vec<IssueComments> = serde_json::from_str(&github_response)?;
-    println!("{:?}", items);
+    // println!("{:?}", items);
   Ok(items)
 }
 
@@ -637,13 +624,18 @@ struct ApiResponseItem {
     body: Option<String>,
     repository: Option<String>,
     organization: Option<String>,
+    // comments: Option<Vec<IssueComments>>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 struct IssueComments {
-    #[serde(rename = "html_url")]
-    url: String,
-    body: Option<String>,
+    body: String,
+    user: User,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+struct User {
+    login: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
