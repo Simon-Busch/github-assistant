@@ -387,12 +387,16 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
     };
     let issue_details;
     if show_comment == true {
+      let max_line_width = 100;
       let comments_text: Vec<String> = selected_issue
           .commentaires
           .iter()
-          .map(|comment| format!("{}: {}", comment.user.login, comment.body))
+          .filter(|comment| comment.user.login != "netlify[bot]")
+          .map(|comment| {
+              let formatted_body = split_long_lines(&comment.body, max_line_width);
+              format!("{}: {}", comment.user.login, formatted_body)
+          })
           .collect();
-
       let comments_cell = Cell::from(comments_text.join("\n"));
 
       issue_details = Table::new(vec![
@@ -413,7 +417,7 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
           ]),
           Row::new(vec![comments_cell])
               .style(Style::default().fg(Color::White))
-              .height(2),
+              .height(50),
       ])
       .block(
           Block::default()
@@ -526,8 +530,6 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
       )
       .highlight_symbol(">>>>> ");
     }
-
-
   (issue_list, issue_details)
 }
 
@@ -559,7 +561,6 @@ async fn get_github_response(username: &str, access_token: &str, status: &str) -
       .await?;
 
   let mut items: ApiResponse = serde_json::from_str(&github_response)?;
-  println!("items: {:?}", items);
   for item in items.items.iter_mut() {
       let url_parts: Vec<&str> = item.url.split("/").collect();
       item.repository = Some(url_parts[url_parts.len() - 3].to_string());
@@ -571,9 +572,30 @@ async fn get_github_response(username: &str, access_token: &str, status: &str) -
           item.commentaires = comments_json;
       }
   }
-  println!("items: {:?}", items);
   Ok(items)
 }
+
+fn split_long_lines(s: &str, max_width: usize) -> String {
+    let words: Vec<&str> = s.split_whitespace().collect();
+    let mut lines = vec![];
+    let mut line = String::new();
+
+    for word in words {
+        if line.len() + word.len() > max_width {
+            lines.push(line.trim().to_string());
+            line.clear();
+        }
+        line.push_str(word);
+        line.push(' ');
+    }
+
+    if !line.trim().is_empty() {
+        lines.push(line.trim().to_string());
+    }
+
+    lines.join("\n")
+}
+
 
 #[derive(Debug, Deserialize)]
 struct ApiResponse {
