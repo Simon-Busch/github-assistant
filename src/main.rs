@@ -9,9 +9,7 @@ use tui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Span, Spans},
-    widgets::{
-        Block, BorderType, Borders, Cell, List, ListItem, ListState, Paragraph, Row, Table, Tabs,
-    },
+    widgets::{Block, BorderType, Borders, Cell, List, ListItem, ListState, Paragraph, Row, Table, Tabs},
     Terminal,
 };
 use crossterm::{
@@ -135,8 +133,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         .style(Style::default().fg(Color::White))
                         .title("Copyright")
                         .border_type(BorderType::Plain)
-                )
-                ;
+                        .border_type(BorderType::Rounded)
+                );
 
             let menu = menu_titles
                 .iter()
@@ -156,7 +154,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             let tabs = Tabs::new(menu)
                 .select(active_menu_item.into())
-                .block(Block::default().title("Menu").borders(Borders::ALL))
+                .block(Block::default().title("Menu").borders(Borders::ALL).border_type(BorderType::Rounded))
                 .style(Style::default().fg(Color::White))
                 .highlight_style(Style::default().fg(Color::LightCyan))
                 .divider(Span::raw("|"));
@@ -307,7 +305,7 @@ fn render_waiting_screen<B: tui::backend::Backend>(
           .block(
               Block::default()
                   .title(Span::styled("GitHub Assistant", Style::default().add_modifier(Modifier::BOLD)))
-                  .borders(Borders::ALL),
+                  .borders(Borders::ALL).border_type(BorderType::Rounded),
           );
       f.render_widget(loading_screen_paragraph, size);
   })?;
@@ -355,7 +353,8 @@ fn render_home<'a>(opened: &i32, closed: &i32) -> Paragraph<'a> {
           .borders(Borders::ALL)
           .style(Style::default().fg(Color::White))
           .title("Home")
-          .border_type(BorderType::Plain),
+          .border_type(BorderType::Plain)
+          .border_type(BorderType::Rounded),
     );
     home
 }
@@ -366,9 +365,9 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
         .iter()
         .map(|i| {
             count += 1;
-            let created_at = i.created_at.parse::<DateTime<Utc>>().unwrap();
+            let updated_at = i.updated_at.parse::<DateTime<Utc>>().unwrap();
             let now = Utc::now();
-            let diff = now.signed_duration_since(created_at);
+            let diff = now.signed_duration_since(updated_at);
 
             let color = if diff > ChronoDuration::days(90) {
                 Color::Red
@@ -385,9 +384,10 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
         .collect();
 
     let issue_list = List::new(items)
-        .block(Block::default().title(format!("Assignments ({} total)", count)).borders(Borders::ALL))
+        .block(Block::default().title(format!("Assignments ({} total)", count)).borders(Borders::ALL).border_type(BorderType::Rounded))
         .style(Style::default().fg(Color::White))
-        .highlight_style(Style::default().add_modifier(Modifier::UNDERLINED));
+        // .highlight_style(Style::default().add_modifier(Modifier::UNDERLINED))
+        .highlight_symbol("> ");
 
     let binding = ApiResponseItem {
         url: "".to_owned(),
@@ -459,7 +459,6 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
               .add_modifier(Modifier::BOLD)
               .fg(Color::LightMagenta),
       )
-      .highlight_symbol(">>>>> ");
     } else {
       issue_details = Table::new(vec![
           Row::new(vec![Cell::from("Number")])
@@ -516,7 +515,7 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
           .style(Style::default().fg(Color::White))
           .height(2),
 
-          Row::new(vec![Cell::from("Details")])
+          Row::new(vec![Cell::from("Description")])
           .style(Style::default().fg(Color::LightCyan))
           .height(1),
           Row::new(vec![
@@ -549,6 +548,7 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
       .block(
           Block::default()
               .title("Details")
+              .border_type(BorderType::Rounded)
               .borders(Borders::ALL),
       )
       .widths(&[Constraint::Min(0)])
@@ -557,7 +557,6 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
               .add_modifier(Modifier::BOLD)
               .fg(Color::LightMagenta),
       )
-      .highlight_symbol(">>>>> ");
     }
   (issue_list, issue_details)
 }

@@ -1,0 +1,2 @@
+export GITHUB_USERNAME=myusername
+export GITHUB_TOKEN=mytoken
