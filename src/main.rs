@@ -22,7 +22,6 @@ use std::time::{Duration, Instant};
 use std::io;
 use std::thread;
 use chrono::{Duration as ChronoDuration, Utc, DateTime};
-use textwrap::wrap;
 
 enum Event<I> {
     Input(I),
@@ -84,6 +83,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     terminal.clear()?;
+    // Render the loading screen
+    render_waiting_screen(&mut terminal)?;
 
     let (username, access_token) = init_variables();
     let issues_list_response_open = get_github_response(&username, &access_token, "open").await?;
@@ -273,10 +274,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
                   }
               }
               KeyCode::Right => {
-                  show_comment = true;
+                  if active_open == true {
+                    show_comment = true;
+                  }
               }
               KeyCode::Left => {
-                show_comment = false;
+                  if active_open == true {
+                      show_comment = false;
+                  }
               }
               _ => {}
           },
@@ -286,6 +291,29 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn render_waiting_screen<B: tui::backend::Backend>(
+  terminal: &mut Terminal<B>,
+) -> Result<(), Box<dyn std::error::Error>> {
+  let loading_screen = vec![
+      Spans::from(Span::styled("Loading GitHub data...", Style::default().add_modifier(Modifier::BOLD))),
+      Spans::from(Span::raw("")),
+      Spans::from(Span::styled("Please wait while we fetch the data from GitHub...", Style::default())),
+  ];
+
+  terminal.draw(|f| {
+      let size = f.size();
+      let loading_screen_paragraph = Paragraph::new(loading_screen.clone())
+          .alignment(Alignment::Center)
+          .block(
+              Block::default()
+                  .title(Span::styled("GitHub Assistant", Style::default().add_modifier(Modifier::BOLD)))
+                  .borders(Borders::ALL),
+          );
+      f.render_widget(loading_screen_paragraph, size);
+  })?;
+
+  Ok(())
+}
 
 fn render_home<'a>(opened: &i32, closed: &i32) -> Paragraph<'a> {
     let home = Paragraph::new(vec![
@@ -331,7 +359,6 @@ fn render_home<'a>(opened: &i32, closed: &i32) -> Paragraph<'a> {
     );
     home
 }
-
 
 fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option<usize>, show_comment: bool) -> (List<'a>, Table<'a>) {
     let mut count = 0;
@@ -382,13 +409,14 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
         .map(|i| &issues[i])
         .unwrap_or(&binding);
 
+    let max_line_width = 100;
     let body_height = match &selected_issue.body {
           Some(body) => body.lines().count() + 1,
           None => 1,
     };
     let issue_details;
+
     if show_comment == true {
-      let max_line_width = 100;
       let comments_text: Vec<String> = selected_issue
           .comments_list
           .iter()
