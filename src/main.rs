@@ -358,7 +358,7 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
         .collect();
 
     let issue_list = List::new(items)
-        .block(Block::default().title(format!("Issues ({} total)", count)).borders(Borders::ALL))
+        .block(Block::default().title(format!("Assignments ({} total)", count)).borders(Borders::ALL))
         .style(Style::default().fg(Color::White))
         .highlight_style(Style::default().add_modifier(Modifier::UNDERLINED));
 
@@ -373,8 +373,9 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
         created_at: "".to_owned(),
         updated_at: "".to_owned(),
         labels: vec![],
-        commentaires: vec![],
+        comments_list: vec![],
         comments_url: "".to_owned(),
+        is_pr: false,
     };
 
     let selected_issue = selected_issue_index
@@ -389,7 +390,7 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
     if show_comment == true {
       let max_line_width = 100;
       let comments_text: Vec<String> = selected_issue
-          .commentaires
+          .comments_list
           .iter()
           .filter(|comment| comment.user.login != "netlify[bot]")
           .map(|comment| {
@@ -565,11 +566,12 @@ async fn get_github_response(username: &str, access_token: &str, status: &str) -
       let url_parts: Vec<&str> = item.url.split("/").collect();
       item.repository = Some(url_parts[url_parts.len() - 3].to_string());
       item.organization = Some(url_parts[url_parts.len() - 4].to_string());
+      item.is_pr = url_parts.contains(&"pull");
       if item.state == "open" {
           let comments_url = &item.comments_url;
           let comments_response = client.get(comments_url).send().await?;
           let comments_json: Vec<IssueComments> = comments_response.json().await?;
-          item.commentaires = comments_json;
+          item.comments_list = comments_json;
       }
   }
   Ok(items)
@@ -619,7 +621,9 @@ struct ApiResponseItem {
     #[serde(rename = "comments_url")]
     comments_url: String,
     #[serde(skip_deserializing)]
-    commentaires: Vec<IssueComments>,
+    comments_list: Vec<IssueComments>,
+    #[serde(skip_deserializing)]
+    is_pr: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
