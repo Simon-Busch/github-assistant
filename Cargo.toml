@@ -2,6 +2,13 @@
 name = "rust-github-assistant"
 version = "0.1.0"
 edition = "2021"
+authors = ["simon Busch <simon.busch@live.fr>"]
+description = "Keep track of your github assignments"
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/Simon-Busch/rust-github-assistant"
+repository = "https://github.com/Simon-Busch/rust-github-assistant"
+categories = ["command-line-utilities"]
+keywords = ["github", "assistant", "cli", "rust"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

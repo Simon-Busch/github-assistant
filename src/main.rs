@@ -85,16 +85,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     render_waiting_screen(&mut terminal)?;
 
     let (username, access_token) = init_variables();
-    let issues_list_response_open = get_github_response(&username, &access_token, "open").await?;
-    let issues_list_response_closed = get_github_response(&username, &access_token, "closed").await?;
 
-    let mut issues_list_open = issues_list_response_open.items.to_owned();
-    //sort alphabetically by repository
-    issues_list_open.sort_by_key(|i| i.repository.clone().unwrap_or_default());
-
-    let mut issues_list_closed = issues_list_response_closed.items.to_owned();
-    //sort alphabetically by repository
-    issues_list_closed.sort_by_key(|i| i.repository.clone().unwrap_or_default());
+    let (issues_list_open, issues_list_closed, issues_list_open_len, issues_list_closed_len) = init_gh_data(&username, &access_token).await?;
 
     let menu_titles = vec!["Home","Assignments", "Closed", "Quit"]; // Add "Refresh",
     let mut active_menu_item = MenuItem::Home;
@@ -161,7 +153,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             rect.render_widget(tabs, chunks[0]);
             match active_menu_item {
-                MenuItem::Home => rect.render_widget(render_home(&issues_list_response_open.total_count, &issues_list_response_closed.total_count), chunks[1]),
+                MenuItem::Home => rect.render_widget(render_home(&issues_list_open_len, &issues_list_closed_len), chunks[1]),
                 MenuItem::Assignments => {
                     let data_chunck = Layout::default()
                         .direction(Direction::Horizontal)
@@ -285,9 +277,28 @@ async fn main() -> Result<(), Box<dyn Error>> {
           },
           Event::Tick => {}
       }
-  }
+      }
     Ok(())
 }
+
+async fn init_gh_data(username: &str, access_token: &str) -> Result<(Vec<ApiResponseItem>, Vec<ApiResponseItem>, i32, i32), Box<dyn Error>> {
+  // Get list of open issues
+  let issues_list_response_open = get_github_response(username, access_token, "open").await?;
+  let mut issues_list_open = issues_list_response_open.items.to_owned();
+  issues_list_open.sort_by_key(|i| i.repository.clone().unwrap_or_default());
+
+  // Get list of closed issues
+  let issues_list_response_closed = get_github_response(username, access_token, "closed").await?;
+  let mut issues_list_closed = issues_list_response_closed.items.to_owned();
+  issues_list_closed.sort_by_key(|i| i.repository.clone().unwrap_or_default());
+
+  // Convert the lengths of the issue lists to i32
+  let issues_list_open_len = issues_list_open.len() as i32;
+  let issues_list_closed_len = issues_list_closed.len() as i32;
+
+  Ok((issues_list_open, issues_list_closed, issues_list_open_len, issues_list_closed_len))
+}
+
 
 fn render_waiting_screen<B: tui::backend::Backend>(
   terminal: &mut Terminal<B>,
