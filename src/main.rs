@@ -376,9 +376,14 @@ fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option
             } else {
                 Color::White
             };
-
+            let indicator;
+            if i.is_pr {
+                indicator = "🔗";
+            } else {
+                indicator = "📄";
+            }
             ListItem::new(Spans::from(vec![
-                Span::styled(format!("{: <4} | {: <20}", i.number, i.title), Style::default().fg(color)),
+                Span::styled(format!("{: <4} | {: <1} |{: <20}", i.number, indicator, i.title), Style::default().fg(color)),
             ]))
         })
         .collect();
