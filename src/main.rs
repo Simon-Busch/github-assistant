@@ -293,8 +293,8 @@ async fn init_gh_data(username: &str, access_token: &str) -> Result<(Vec<ApiResp
   issues_list_closed.sort_by_key(|i| i.repository.clone().unwrap_or_default());
 
   // Convert the lengths of the issue lists to i32
-  let issues_list_open_len = issues_list_open.len() as i32;
-  let issues_list_closed_len = issues_list_closed.len() as i32;
+  let issues_list_open_len = issues_list_response_open.total_count;
+  let issues_list_closed_len = issues_list_response_closed.total_count;
 
   Ok((issues_list_open, issues_list_closed, issues_list_open_len, issues_list_closed_len))
 }
@@ -642,7 +642,7 @@ fn split_long_lines(s: &str, max_width: usize) -> String {
 }
 
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 struct ApiResponse {
     total_count: i32,
     items: Vec<ApiResponseItem>,
