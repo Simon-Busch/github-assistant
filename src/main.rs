@@ -6,11 +6,11 @@ use reqwest::header;
 use std::{error::Error, sync::mpsc};
 use tui::{
     backend::CrosstermBackend,
-    layout::{Alignment, Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Span, Spans},
-    widgets::{Block, BorderType, Borders, Cell, List, ListItem, ListState, Paragraph, Row, Table, Tabs},
-    Terminal,
+    widgets::{Block, BorderType, Borders, Cell, List, ListItem, ListState, Paragraph, Row, Table, Tabs, Clear},
+    Terminal
 };
 use crossterm::{
     event::{self, Event as CEvent, KeyCode},
@@ -97,8 +97,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut issue_list_state_closed = ListState::default();
     issue_list_state_closed.select(Some(0));
 
+    let mut action_list_state = ListState::default();
+    action_list_state.select(Some(0));
+
     let mut active_open = true;
     let mut show_comment = false;
+
+    // Create a flag to keep track of whether the prompt window is open
+    let mut prompt_open = false;
 
     loop {
         terminal.draw(|rect| {
@@ -161,11 +167,41 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             [Constraint::Percentage(30), Constraint::Percentage(70)].as_ref(),
                         )
                         .split(chunks[1]);
+
                       if active_open == true && show_comment == false {
-                        let selected_issue_index =  issue_list_state_open.selected();
-                        let (left, right) = render_issues(&issues_list_open, selected_issue_index, show_comment);
-                        rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
-                        rect.render_widget(right, data_chunck[1]);
+                            let selected_issue_index =  issue_list_state_open.selected();
+                            let (left, right) = render_issues(&issues_list_open, selected_issue_index, show_comment);
+                            rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
+                            rect.render_widget(right, data_chunck[1]);
+                            if prompt_open == true {
+                              let items = vec![
+                                ListItem::new("  1 - Close issue"),
+                                ListItem::new("  2 - Comment on issue"),
+                                ListItem::new("  3 - Reopen issue"),
+                            ];
+
+                            let list = List::new(items)
+                                .block(
+                                    Block::default()
+                                        .borders(Borders::ALL)
+                                        .title("Actions")
+                                )
+                                .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+                                .highlight_symbol(">> ");
+
+                            let popup = Block::default()
+                                .borders(Borders::ALL)
+                                .title("Select an action")
+                                .style(Style::default().fg(Color::White).bg(Color::Black));
+
+                            let popup_chunk = centered_rect(50, 30, rect.size()); // Adjust the width and height values as needed
+
+                            // Render the list on top of the existing widgets
+                            rect.render_widget(popup, popup_chunk);
+                            rect.render_widget(Clear, popup_chunk);
+                            rect.render_widget(list, popup_chunk);
+
+                          }
                       } else if active_open == true && show_comment == true {
                           let selected_issue_index =  issue_list_state_open.selected();
                           let (left, right) = render_issues(&issues_list_open, selected_issue_index, show_comment);
@@ -262,17 +298,84 @@ async fn main() -> Result<(), Box<dyn Error>> {
                           eprintln!("Failed to open URL '{}': {}", url, e);
                       }
                   }
-              }
+              },
               KeyCode::Right => {
                   if active_open == true {
                     show_comment = true;
                   }
-              }
+              },
               KeyCode::Left => {
                   if active_open == true {
                       show_comment = false;
                   }
+              },
+              KeyCode::Char('1')=> {
+                // close issue
+                  let state;
+                  let list: &Vec<ApiResponseItem>;
+                    if active_open == true {
+                        state = &mut issue_list_state_open;
+                        list = &issues_list_open;
+                    } else {
+                        state = &mut issue_list_state_closed;
+                        list = &issues_list_closed;
+                    }
+                  if let Some(selected) = state.selected() {
+                      let number = &list[selected].number;
+                      if prompt_open {
+                          println!("Enter a comment");
+                          println!("{}", number);
+                          //todo
+                          // -> implement github actions ...
+                      }
+                  }
+              },
+              KeyCode::Char('2')=> {
+                // comment on the issue
+                  let state;
+                  let list: &Vec<ApiResponseItem>;
+                    if active_open == true {
+                        state = &mut issue_list_state_open;
+                        list = &issues_list_open;
+                    } else {
+                        state = &mut issue_list_state_closed;
+                        list = &issues_list_closed;
+                    }
+                  if let Some(selected) = state.selected() {
+                      let number = &list[selected].number;
+                      if prompt_open {
+                          println!("Enter a comment");
+                          println!("{}", number);
+                          //todo
+                          // -> implement github actions ...
+                      }
+                  }
+              },
+              KeyCode::Char('3')=> {
+                  // reopen issue
+                  let state;
+                  let list: &Vec<ApiResponseItem>;
+                    if active_open == true {
+                        state = &mut issue_list_state_open;
+                        list = &issues_list_open;
+                    } else {
+                        state = &mut issue_list_state_closed;
+                        list = &issues_list_closed;
+                    }
+                  if let Some(selected) = state.selected() {
+                      let number = &list[selected].number;
+                      if prompt_open {
+                          println!("Enter a comment");
+                          println!("{}", number);
+                          //todo
+                          // -> implement github actions ...
+                      }
+                  }
+              },
+              KeyCode::Char('p') => {
+                  prompt_open = !prompt_open;
               }
+
               _ => {}
           },
           Event::Tick => {}
@@ -639,6 +742,16 @@ fn split_long_lines(s: &str, max_width: usize) -> String {
     }
 
     lines.join("\n")
+}
+
+fn centered_rect(width: u16, height: u16, parent: Rect) -> Rect {
+  let parent_width = parent.width;
+  let parent_height = parent.height;
+
+  let x = (parent_width - width) / 2;
+  let y = (parent_height - height) / 2;
+
+  Rect::new(x, y, width, height)
 }
 
 
