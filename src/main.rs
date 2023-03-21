@@ -2,7 +2,7 @@ mod structs;
 use structs::ApiResponseItem;
 
 mod api;
-use api::init_gh_data;
+use api::{init_gh_data, update_issue_status};
 
 mod render_items;
 use render_items::{render_home, render_issues, render_waiting_screen};
@@ -94,7 +94,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let (username, access_token) = init_variables();
 
-    let (issues_list_open, issues_list_closed, issues_list_open_len, issues_list_closed_len) = init_gh_data(&username, &access_token).await?;
+    let (mut issues_list_open, mut issues_list_closed, mut issues_list_open_len, mut issues_list_closed_len) = init_gh_data(&username, &access_token).await?;
 
     let menu_titles = vec!["Home","Assignments", "Closed", "Quit"]; // Add "Refresh",
     let mut active_menu_item = MenuItem::Home;
@@ -318,7 +318,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                   }
               },
               KeyCode::Char('1')=> {
-                // close issue
+                  // close issue
                   let state;
                   let list: &Vec<ApiResponseItem>;
                     if active_open == true {
@@ -329,17 +329,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         list = &issues_list_closed;
                     }
                   if let Some(selected) = state.selected() {
-                      let number = &list[selected].number;
+                      let number = list[selected].number;
+                      let repo_owner = list[selected].organization.as_ref().unwrap().to_owned();
+                      let repo_name = list[selected].repository.as_ref().unwrap().to_owned();
                       if prompt_open {
-                          println!("Enter a comment");
-                          println!("{}", number);
                           //todo
-                          // -> implement github actions ...
+                          update_issue_status(repo_owner, repo_name, number, &access_token).await?;
+                          issues_list_open = issues_list_open.into_iter()
+                          .filter(|item| item.number != number)
+                          .collect::<Vec<ApiResponseItem>>();
+                          issue_list_state_open = ListState::default();
+                          issue_list_state_open.select(Some(0));
+                          issues_list_open_len = issues_list_open_len - 1;
+                          prompt_open = false;
                       }
                   }
               },
               KeyCode::Char('2')=> {
-                // comment on the issue
+                  // comment on the issue
                   let state;
                   let list: &Vec<ApiResponseItem>;
                     if active_open == true {
