@@ -1,7 +1,7 @@
 use reqwest::header::{HeaderValue, ACCEPT};
 use reqwest::header;
 
-pub async fn update_issue_status(repo_owner: String, repo_name: String, issue_number: i32, access_token: &String) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn update_issue_status(repo_owner: String, repo_name: String, issue_number: i32, access_token: &String, state: &str) -> Result<(), Box<dyn std::error::Error>> {
   let mut headers = header::HeaderMap::new();
   headers.insert(
       ACCEPT,
@@ -21,14 +21,14 @@ pub async fn update_issue_status(repo_owner: String, repo_name: String, issue_nu
         .patch(&patch_url)
         .header("Authorization", format!("token {}", access_token))
         .header("Content-Type", "application/json")
-        .body(r#"{"state": "closed"}"#)
+        .body(r#"{"state": "state"}"#)
         .send()
         .await?;
 
     if response.status().is_success() {
-        println!("Issue closed successfully.");
+        println!("Issue {} successfully.", state);
     } else {
-        println!("Failed to close issue.");
+        println!("Failed to {} issue.", state);
     }
 
     Ok(())

@@ -94,7 +94,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let (username, access_token) = init_variables();
 
-    let (mut issues_list_open, mut issues_list_closed, mut issues_list_open_len, mut issues_list_closed_len) = init_gh_data(&username, &access_token).await?;
+    let (mut issues_list_open, issues_list_closed, mut issues_list_open_len, issues_list_closed_len) = init_gh_data(&username, &access_token).await?;
 
     let menu_titles = vec!["Home","Assignments", "Closed", "Quit"]; // Add "Refresh",
     let mut active_menu_item = MenuItem::Home;
@@ -185,7 +185,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                               let items = vec![
                                 ListItem::new("  1 - Close issue"),
                                 ListItem::new("  2 - Comment on issue"),
-                                ListItem::new("  3 - Reopen issue"),
+                                // ListItem::new("  3 - Reopen issue"),
                             ];
 
                             let list = List::new(items)
@@ -200,9 +200,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             let popup = Block::default()
                                 .borders(Borders::ALL)
                                 .title("Select an action")
-                                .style(Style::default().fg(Color::White).bg(Color::Black));
+                                .style(Style::default().fg(Color::White).bg(Color::DarkGray));
 
-                            let popup_chunk = centered_rect(50, 30, rect.size()); // Adjust the width and height values as needed
+                            let popup_chunk = centered_rect(25, 10, rect.size()); // Adjust the width and height values as needed
 
                             // Render the list on top of the existing widgets
                             rect.render_widget(popup, popup_chunk);
@@ -333,8 +333,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                       let repo_owner = list[selected].organization.as_ref().unwrap().to_owned();
                       let repo_name = list[selected].repository.as_ref().unwrap().to_owned();
                       if prompt_open {
-                          //todo
-                          update_issue_status(repo_owner, repo_name, number, &access_token).await?;
+                          update_issue_status(repo_owner, repo_name, number, &access_token, "closed").await?;
                           issues_list_open = issues_list_open.into_iter()
                           .filter(|item| item.number != number)
                           .collect::<Vec<ApiResponseItem>>();
@@ -366,27 +365,34 @@ async fn main() -> Result<(), Box<dyn Error>> {
                       }
                   }
               },
-              KeyCode::Char('3')=> {
-                  // reopen issue
-                  let state;
-                  let list: &Vec<ApiResponseItem>;
-                    if active_open == true {
-                        state = &mut issue_list_state_open;
-                        list = &issues_list_open;
-                    } else {
-                        state = &mut issue_list_state_closed;
-                        list = &issues_list_closed;
-                    }
-                  if let Some(selected) = state.selected() {
-                      let number = &list[selected].number;
-                      if prompt_open {
-                          println!("Enter a comment");
-                          println!("{}", number);
-                          //todo
-                          // -> implement github actions ...
-                      }
-                  }
-              },
+              // KeyCode::Char('3')=> {
+              //     // reopen issue
+              //     let state;
+              //     let list: &Vec<ApiResponseItem>;
+              //       if active_open == true {
+              //           state = &mut issue_list_state_open;
+              //           list = &issues_list_open;
+              //       } else {
+              //           state = &mut issue_list_state_closed;
+              //           list = &issues_list_closed;
+              //       }
+              //     if let Some(selected) = state.selected() {
+              //         let number = list[selected].number;
+              //         let repo_owner = list[selected].organization.as_ref().unwrap().to_owned();
+              //         let repo_name = list[selected].repository.as_ref().unwrap().to_owned();
+              //         if prompt_open {
+              //             update_issue_status(repo_owner, repo_name, number, &access_token, "open").await?;
+              //             //TODO : How to handle this ?
+              //             // issues_list_open = issues_list_open.into_iter()
+              //             // .filter(|item| item.number != number)
+              //             // .collect::<Vec<ApiResponseItem>>();
+              //             // issue_list_state_open = ListState::default();
+              //             // issue_list_state_open.select(Some(0));
+              //             // issues_list_open_len = issues_list_open_len - 1;
+              //             // prompt_open = false;
+              //         }
+              //     }
+              // },
               KeyCode::Char('p') => {
                   prompt_open = !prompt_open;
               }
