@@ -13,22 +13,22 @@ pub fn centered_rect(width: u16, height: u16, parent: Rect) -> Rect {
 }
 
 pub fn get_current_state_and_list<'a>(
-  active_open: bool,
-  issue_list_state_open: &'a mut ListState,
-  issue_list_state_closed: &'a mut ListState,
-  issues_list_open: &'a Vec<ApiResponseItem>,
-  issues_list_closed: &'a Vec<ApiResponseItem>,
+    active_open: bool,
+    issue_list_state_open: &'a mut ListState,
+    issue_list_state_closed: &'a mut ListState,
+    issues_list_open: &'a Vec<ApiResponseItem>,
+    issues_list_closed: &'a Vec<ApiResponseItem>,
 ) -> (&'a mut ListState, &'a Vec<ApiResponseItem>) {
-  if active_open {
-      (issue_list_state_open, issues_list_open)
-  } else {
-      (issue_list_state_closed, issues_list_closed)
-  }
+    if active_open {
+        (issue_list_state_open, issues_list_open)
+    } else {
+        (issue_list_state_closed, issues_list_closed)
+    }
 }
 
 pub fn move_selection(state: &mut ListState, items: &Vec<ApiResponseItem>, delta: isize) {
-  if let Some(selected) = state.selected() {
-      let next = (selected as isize + delta).max(0).min((items.len() - 1) as isize);
-      state.select(Some(next as usize));
-  }
+    if let Some(selected) = state.selected() {
+        let next = (selected as isize + delta).max(0).min((items.len() - 1) as isize);
+        state.select(Some(next as usize));
+    }
 }
