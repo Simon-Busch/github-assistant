@@ -8,18 +8,18 @@ mod render_items;
 use render_items::{render_home, render_issues, render_waiting_screen};
 
 mod utils;
-use utils::centered_rect;
+use utils::{centered_rect, get_current_state_and_list, move_selection};
 
 use dotenv::dotenv;
 use tokio;
 use std::{error::Error, sync::mpsc};
 use tui::{
-    backend::CrosstermBackend,
+    backend::{CrosstermBackend, Backend},
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Span, Spans},
     widgets::{Block, BorderType, Borders,  List, ListItem, ListState, Paragraph, Tabs, Clear},
-    Terminal
+    Terminal, Frame
 };
 use crossterm::{
     event::{self, Event as CEvent, KeyCode},
@@ -39,6 +39,7 @@ enum MenuItem {
     Home,
     Assignments,
     Closed,
+    Refresh,
 }
 
 impl From<MenuItem> for usize {
@@ -47,6 +48,7 @@ impl From<MenuItem> for usize {
             MenuItem::Home => 0,
             MenuItem::Assignments => 1,
             MenuItem::Closed => 2,
+            MenuItem::Refresh => 3,
         }
     }
 }
@@ -94,9 +96,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let (username, access_token) = init_variables();
 
-    let (mut issues_list_open, issues_list_closed, mut issues_list_open_len, issues_list_closed_len) = init_gh_data(&username, &access_token).await?;
+    let (mut issues_list_open, mut issues_list_closed, mut issues_list_open_len, mut issues_list_closed_len) = init_gh_data(&username, &access_token).await?;
 
-    let menu_titles = vec!["Home","Assignments", "Closed", "Quit"]; // Add "Refresh",
+    let menu_titles = vec!["Home","Assignments", "Closed", "Refresh", "Quit"]; // Add "Refresh",
     let mut active_menu_item = MenuItem::Home;
 
     let mut issue_list_state_open = ListState::default();
@@ -186,29 +188,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 ListItem::new("  1 - Close issue"),
                                 ListItem::new("  2 - Comment on issue"),
                                 // ListItem::new("  3 - Reopen issue"),
-                            ];
-
-                            let list = List::new(items)
-                                .block(
-                                    Block::default()
-                                        .borders(Borders::ALL)
-                                        .title("Actions")
-                                )
-                                .highlight_style(Style::default().add_modifier(Modifier::BOLD))
-                                .highlight_symbol(">> ");
-
-                            let popup = Block::default()
-                                .borders(Borders::ALL)
-                                .title("Select an action")
-                                .style(Style::default().fg(Color::White).bg(Color::DarkGray));
-
-                            let popup_chunk = centered_rect(25, 10, rect.size()); // Adjust the width and height values as needed
-
-                            // Render the list on top of the existing widgets
-                            rect.render_widget(popup, popup_chunk);
-                            rect.render_widget(Clear, popup_chunk);
-                            rect.render_widget(list, popup_chunk);
-
+                                ];
+                              render_popup(rect, items);
                           }
                       } else if active_open == true && show_comment == true {
                           let selected_issue_index =  issue_list_state_open.selected();
@@ -231,6 +212,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                       rect.render_widget(right, data_chunck[1]);
                   }
                 },
+                MenuItem::Refresh => {
+
+                }
             }
             rect.render_widget(copyright, chunks[2]);
         })?;
@@ -252,61 +236,40 @@ async fn main() -> Result<(), Box<dyn Error>> {
                   active_menu_item = MenuItem::Closed
               },
               KeyCode::Down => {
-                  let state;
-                  let items;
-                  if active_open {
-                      state = &mut issue_list_state_open;
-                      items = &issues_list_open;
-                  } else {
-                      state = &mut issue_list_state_closed;
-                      items = &issues_list_closed;
-                  }
-                  if let Some(selected) = state.selected() {
-                      let next = selected.checked_add(1);
-                      if let Some(new_selection) = next {
-                          if new_selection < items.len() {
-                              state.select(Some(new_selection));
-                          } else {
-                              state.select(Some(0));
-                          }
-                      }
-                  }
-              },
-              KeyCode::Up => {
-                  let state;
-                  if active_open {
-                      state = &mut issue_list_state_open;
-                  } else {
-                      state = &mut issue_list_state_closed;
-                  }
-                  if let Some(selected) = state.selected() {
-                      let next = selected.checked_sub(1);
-                      if let Some(new_selection) = next {
-                          state.select(Some(new_selection));
-                      } else if active_open {
-                          state.select(Some(issues_list_open.len() - 1));
-                      } else {
-                          state.select(Some(issues_list_closed.len() - 1));
-                      }
-                  }
-              },
-              KeyCode::Enter => {
-                  let state;
-                  let list: &Vec<ApiResponseItem>;
-                  if active_open == true {
-                      state = &mut issue_list_state_open;
-                      list = &issues_list_open;
-                  } else {
-                      state = &mut issue_list_state_closed;
-                      list = &issues_list_closed;
-                  }
-                  if let Some(selected) = state.selected() {
-                      let url = &list[selected].url;
-                      if let Err(e) = open::that(url) {
-                          eprintln!("Failed to open URL '{}': {}", url, e);
-                      }
-                  }
-              },
+                let (state, items) = get_current_state_and_list(
+                    active_open,
+                    &mut issue_list_state_open,
+                    &mut issue_list_state_closed,
+                    &issues_list_open,
+                    &issues_list_closed,
+                );
+                move_selection(state, items, 1);
+            }
+            KeyCode::Up => {
+                let (state, _) = get_current_state_and_list(
+                    active_open,
+                    &mut issue_list_state_open,
+                    &mut issue_list_state_closed,
+                    &issues_list_open,
+                    &issues_list_closed,
+                );
+                move_selection(state, &issues_list_open, -1);
+            }
+            KeyCode::Enter => {
+                let (state, list) = get_current_state_and_list(
+                    active_open,
+                    &mut issue_list_state_open,
+                    &mut issue_list_state_closed,
+                    &issues_list_open,
+                    &issues_list_closed,
+                );
+                if let Some(selected) = state.selected() {
+                    let url = &list[selected].url;
+                    if let Err(e) = open::that(url) {
+                        eprintln!("Failed to open URL '{}': {}", url, e);
+                    }
+                }
+            }
               KeyCode::Right => {
                   if active_open == true {
                     show_comment = true;
@@ -361,38 +324,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
                           println!("Enter a comment");
                           println!("{}", number);
                           //todo
-                          // -> implement github actions ...
+                          // -> implement github call ...
                       }
                   }
               },
-              // KeyCode::Char('3')=> {
-              //     // reopen issue
-              //     let state;
-              //     let list: &Vec<ApiResponseItem>;
-              //       if active_open == true {
-              //           state = &mut issue_list_state_open;
-              //           list = &issues_list_open;
-              //       } else {
-              //           state = &mut issue_list_state_closed;
-              //           list = &issues_list_closed;
-              //       }
-              //     if let Some(selected) = state.selected() {
-              //         let number = list[selected].number;
-              //         let repo_owner = list[selected].organization.as_ref().unwrap().to_owned();
-              //         let repo_name = list[selected].repository.as_ref().unwrap().to_owned();
-              //         if prompt_open {
-              //             update_issue_status(repo_owner, repo_name, number, &access_token, "open").await?;
-              //             //TODO : How to handle this ?
-              //             // issues_list_open = issues_list_open.into_iter()
-              //             // .filter(|item| item.number != number)
-              //             // .collect::<Vec<ApiResponseItem>>();
-              //             // issue_list_state_open = ListState::default();
-              //             // issue_list_state_open.select(Some(0));
-              //             // issues_list_open_len = issues_list_open_len - 1;
-              //             // prompt_open = false;
-              //         }
-              //     }
-              // },
               KeyCode::Char('p') => {
                   prompt_open = !prompt_open;
               }
@@ -403,4 +338,28 @@ async fn main() -> Result<(), Box<dyn Error>> {
       }
       }
     Ok(())
+}
+
+
+fn render_popup(rect: &mut Frame<impl Backend>, items: Vec<ListItem>) {
+  let list = List::new(items)
+      .block(
+          Block::default()
+              .borders(Borders::ALL)
+              .title("Actions"),
+      )
+      .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+      .highlight_symbol(">> ");
+
+  let popup = Block::default()
+      .borders(Borders::ALL)
+      .title("Select an action")
+      .style(Style::default().fg(Color::White).bg(Color::DarkGray));
+
+  let popup_chunk = centered_rect(25, 10, rect.size()); // Adjust the width and height values as needed
+
+  // Render the list on top of the existing widgets
+  rect.render_widget(popup, popup_chunk);
+  rect.render_widget(Clear, popup_chunk);
+  rect.render_widget(list, popup_chunk);
 }
