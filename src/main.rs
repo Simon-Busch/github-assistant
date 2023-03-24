@@ -96,7 +96,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let (mut issues_list_open, issues_list_closed, mut issues_list_open_len, issues_list_closed_len) = init_gh_data(&username, &access_token).await?;
 
-    let menu_titles = vec!["Home","Assignments", "Closed", "Refresh", "Quit"]; // Add "Refresh",
+    let menu_titles = vec!["Home","Assignments", "Closed", "Quit"]; // Add "Refresh",
     let mut active_menu_item = MenuItem::Home;
 
     let mut issue_list_state_open = ListState::default();
