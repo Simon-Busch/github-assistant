@@ -79,7 +79,7 @@ pub fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Op
             format!("{}: {}", comment.user.login, formatted_body)
         })
         .collect();
-    let comments_cell = Cell::from(comments_text.join("\n"));
+    let comments_cell = Cell::from(comments_text.join("\n\n"));
 
     issue_details = Table::new(vec![
         Row::new(vec![Cell::from("Number")])

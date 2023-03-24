@@ -5,21 +5,21 @@ mod api;
 use api::{init_gh_data, update_issue_status};
 
 mod render_items;
-use render_items::{render_home, render_issues, render_waiting_screen};
+use render_items::{render_home, render_issues, render_waiting_screen, render_popup};
 
 mod utils;
-use utils::{centered_rect, get_current_state_and_list, move_selection};
+use utils::{get_current_state_and_list, move_selection};
 
 use dotenv::dotenv;
 use tokio;
 use std::{error::Error, sync::mpsc};
 use tui::{
-    backend::{CrosstermBackend, Backend},
+    backend::{CrosstermBackend},
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Span, Spans},
-    widgets::{Block, BorderType, Borders,  List, ListItem, ListState, Paragraph, Tabs, Clear},
-    Terminal, Frame
+    widgets::{Block, BorderType, Borders, ListItem, ListState, Paragraph, Tabs},
+    Terminal,
 };
 use crossterm::{
     event::{self, Event as CEvent, KeyCode},
@@ -55,15 +55,15 @@ impl From<MenuItem> for usize {
 
 fn init_variables() -> (String, String) {
     dotenv().ok();
-    let username = std::env::var("GITHUB_USERNAME").expect("GITHUB_USERNAME must be set.");
-    let access_token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN must be set.");
+    let username = std::env::var("GITHUB_USERNAME").expect("GITHUB_USERNAME must be set. Make sure you run export GITHUB_USERNAME='your username'");
+    let access_token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN must be set. Make sure you run export GITHUB_TOKEN='your github token'");
     return (username, access_token);
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     enable_raw_mode().expect("can run in raw mode");
-
+    let (username, access_token) = init_variables();
     let (tx, rx) = mpsc::channel();
     let tick_rate = Duration::from_millis(200);
     thread::spawn(move || {
@@ -93,8 +93,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     terminal.clear()?;
     // Render the loading screen
     render_waiting_screen(&mut terminal)?;
-
-    let (username, access_token) = init_variables();
 
     let (mut issues_list_open, issues_list_closed, mut issues_list_open_len, issues_list_closed_len) = init_gh_data(&username, &access_token).await?;
 
@@ -338,28 +336,4 @@ async fn main() -> Result<(), Box<dyn Error>> {
       }
       }
     Ok(())
-}
-
-
-fn render_popup(rect: &mut Frame<impl Backend>, items: Vec<ListItem>) {
-  let list = List::new(items)
-      .block(
-          Block::default()
-              .borders(Borders::ALL)
-              .title("Actions"),
-      )
-      .highlight_style(Style::default().add_modifier(Modifier::BOLD))
-      .highlight_symbol(">> ");
-
-  let popup = Block::default()
-      .borders(Borders::ALL)
-      .title("Select an action")
-      .style(Style::default().fg(Color::White).bg(Color::DarkGray));
-
-  let popup_chunk = centered_rect(25, 10, rect.size()); // Adjust the width and height values as needed
-
-  // Render the list on top of the existing widgets
-  rect.render_widget(popup, popup_chunk);
-  rect.render_widget(Clear, popup_chunk);
-  rect.render_widget(list, popup_chunk);
 }
