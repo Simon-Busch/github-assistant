@@ -1,7 +1,6 @@
 export GITHUB_USERNAME=myusername
 export GITHUB_TOKEN=mytoken
 
-
 ## Navigate:
 Up: Go up to in the list
 Down: Go down in the list
