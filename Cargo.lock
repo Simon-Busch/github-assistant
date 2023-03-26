@@ -392,7 +392,7 @@ dependencies = [
 
 [[package]]
 name = "github-assistant"
-version = "0.1.1"
+version = "0.1.0"
 dependencies = [
  "chrono",
  "crossterm 0.19.0",

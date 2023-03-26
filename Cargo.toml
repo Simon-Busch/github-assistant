@@ -1,6 +1,6 @@
 [package]
 name = "github-assistant"
-version = "0.1.1"
+version = "0.1.0"
 edition = "2021"
 authors = ["simon Busch <simon.busch@live.fr>"]
 description = "Keep track of your github assignments"
