@@ -6,9 +6,18 @@ use tui::{
 };
 use crate::structs::ApiResponseItem;
 use chrono::{Duration as ChronoDuration, Utc, DateTime};
+use textwrap::wrap;
+use crossterm::terminal::size;
+
 
 pub fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option<usize>, show_comment: bool) -> (List<'a>, Table<'a>) {
   let mut count = 0;
+  // Determine the terminal width, with a default value if it cannot be determined
+  let terminal_size = size().unwrap_or_default();
+  let terminal_width = terminal_size.0 as usize;
+  let percentage = 0.65;
+  let body_width = (terminal_width as f32 * percentage) as usize;
+
   let items: Vec<ListItem> = issues
       .iter()
       .map(|i| {
@@ -171,14 +180,17 @@ pub fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Op
         Row::new(vec![Cell::from("Description")])
         .style(Style::default().fg(Color::LightCyan))
         .height(1),
-        Row::new(vec![
-            match &selected_issue.body {
-                Some(body) => Cell::from(body.to_string()),
-                None => Cell::from("N/A"),
-            },
-        ])
-        .style(Style::default().fg(Color::White))
-        .height(body_height.try_into().unwrap()),
+    Row::new(vec![
+        match &selected_issue.body {
+            Some(body) => {
+                let wrapped_body = wrap(body, body_width).join("\n");
+                Cell::from(wrapped_body)
+            }
+            None => Cell::from("N/A"),
+        },
+    ])
+    .style(Style::default().fg(Color::White))
+    .height(body_height.try_into().unwrap()),
 
         Row::new(vec![Cell::from("Created at")])
         .style(Style::default().fg(Color::LightCyan))
