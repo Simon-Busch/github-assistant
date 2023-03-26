@@ -39,7 +39,6 @@ enum MenuItem {
     Home,
     Assignments,
     Closed,
-    // Refresh,
 }
 
 impl From<MenuItem> for usize {
@@ -48,7 +47,6 @@ impl From<MenuItem> for usize {
             MenuItem::Home => 0,
             MenuItem::Assignments => 1,
             MenuItem::Closed => 2,
-            // MenuItem::Refresh => 3,
         }
     }
 }
@@ -96,7 +94,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let (mut issues_list_open, issues_list_closed, mut issues_list_open_len, issues_list_closed_len) = init_gh_data(&username, &access_token).await?;
 
-    let menu_titles = vec!["Home","Assignments", "Closed", "Quit"]; // Add "Refresh",
+    let menu_titles = vec!["Home","Assignments", "Closed", "Quit"];
     let mut active_menu_item = MenuItem::Home;
 
     let mut issue_list_state_open = ListState::default();
@@ -184,8 +182,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             if prompt_open == true {
                               let items = vec![
                                 ListItem::new("  1 - Close issue"),
-                                // ListItem::new("  2 - Comment on issue"),
-                                // ListItem::new("  3 - Reopen issue"),
                                 ];
                               render_popup(rect, items);
                           }
@@ -210,9 +206,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                       rect.render_widget(right, data_chunck[1]);
                   }
                 },
-                // MenuItem::Refresh => {
-
-                // }
             }
             rect.render_widget(copyright, chunks[2]);
         })?;
@@ -305,31 +298,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                       }
                   }
               },
-              KeyCode::Char('2')=> {
-                  // comment on the issue
-                  let state;
-                  let list: &Vec<ApiResponseItem>;
-                    if active_open == true {
-                        state = &mut issue_list_state_open;
-                        list = &issues_list_open;
-                    } else {
-                        state = &mut issue_list_state_closed;
-                        list = &issues_list_closed;
-                    }
-                  if let Some(selected) = state.selected() {
-                      let number = &list[selected].number;
-                      if prompt_open {
-                          println!("Enter a comment");
-                          println!("{}", number);
-                          //todo
-                          // -> implement github call ...
-                      }
-                  }
-              },
               KeyCode::Char('p') => {
                   prompt_open = !prompt_open;
               }
-
               _ => {}
           },
           Event::Tick => {}
