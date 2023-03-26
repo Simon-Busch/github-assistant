@@ -128,7 +128,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 )
                 .split(size);
 
-            let copyright = Paragraph::new("Github Assistant - All rights reserved")
+            let copyright = Paragraph::new("Github Assistant - All rights reserved - Simon-Busch ®")
                 .style(Style::default().fg(Color::LightCyan))
                 .alignment(Alignment::Center)
                 .block(
@@ -165,7 +165,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             rect.render_widget(tabs, chunks[0]);
             match active_menu_item {
-                MenuItem::Home => rect.render_widget(render_home(&issues_list_open_len, &issues_list_closed_len), chunks[1]),
+                MenuItem::Home => rect.render_widget(render_home(&issues_list_open_len, &issues_list_closed_len, &username), chunks[1]),
                 MenuItem::Assignments => {
                     let data_chunck = Layout::default()
                         .direction(Direction::Horizontal)

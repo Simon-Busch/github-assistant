@@ -5,7 +5,7 @@ use tui::{
   widgets::{Block, BorderType, Borders, Paragraph}
 };
 
-pub fn render_home<'a>(opened: &i32, closed: &i32) -> Paragraph<'a> {
+pub fn render_home<'a>(opened: &i32, closed: &i32, username: &String) -> Paragraph<'a> {
   let home = Paragraph::new(vec![
       Spans::from(vec![Span::raw("")]),
       Spans::from(vec![Span::raw("")]),
@@ -33,10 +33,10 @@ pub fn render_home<'a>(opened: &i32, closed: &i32) -> Paragraph<'a> {
       Spans::from(vec![Span::raw("")]),
       Spans::from(vec![Span::raw("")]),
       Spans::from(vec![Span::raw("")]),
-      Spans::from(vec![Span::styled(
-          "Simon-Busch ®",
-          Style::default().fg(Color::LightBlue),
-      )]),
+      Spans::from(vec![Span::raw(format!(
+        "Welcome, {}!",
+        username,
+    ))]),
       Spans::from(vec![Span::raw("")]),
     ])
     .alignment(Alignment::Center)

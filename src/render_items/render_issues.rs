@@ -77,52 +77,52 @@ pub fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Op
     let issue_details;
 
     if show_comment == true {
-      let comments_text: Vec<String> = selected_issue
-      .comments_list
-      .iter()
-      .filter(|comment| comment.user.login != "netlify[bot]" || comment.user.login != "gatsby-cloud[bot]" )
-      .map(|comment| {
-        let formatted_body = wrap(&comment.body, body_width).join("\n");
-        format!("{}: {}", comment.user.login, formatted_body)
-      })
-      .collect();
-    let comments_cell;
-    if comments_text.len() == 0 {
-      comments_cell = Cell::from("No comments");
-    } else {
-      comments_cell = Cell::from(comments_text.join("\n\n"));
-    }
-      issue_details = Table::new(vec![
-          Row::new(vec![Cell::from("Number")])
-              .style(Style::default().fg(Color::LightCyan))
-              .height(1),
-          Row::new(vec![
-              Cell::from(selected_issue.number.to_string()),
-              Cell::from(selected_issue.title.clone()),
-              Cell::from(selected_issue.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>().join(", ")),
-              Cell::from(selected_issue.state.clone()),
-          ])
-          .style(Style::default().fg(Color::White))
-          .height(2),
-          Row::new(vec![
-              Cell::from("Comments")
-                  .style(Style::default().fg(Color::LightCyan))
-          ]),
-          Row::new(vec![comments_cell])
-              .style(Style::default().fg(Color::White))
-              .height(50),
-      ])
-      .block(
-          Block::default()
-              .title("Details")
-              .borders(Borders::ALL),
-      )
-      .widths(&[Constraint::Min(0)])
-      .highlight_style(
-          Style::default()
-              .add_modifier(Modifier::BOLD)
-              .fg(Color::LightMagenta),
-      )
+        let comments_text: Vec<String> = selected_issue
+        .comments_list
+        .iter()
+        .filter(|comment| comment.user.login != "netlify[bot]" || comment.user.login != "gatsby-cloud[bot]" )
+        .map(|comment| {
+          let formatted_body = wrap(&comment.body, body_width).join("\n");
+          format!("{}: {}", comment.user.login, formatted_body)
+        })
+        .collect();
+        let comments_cell;
+        if comments_text.len() == 0 {
+            comments_cell = Cell::from("No comments");
+        } else {
+            comments_cell = Cell::from(comments_text.join("\n\n"));
+        }
+        issue_details = Table::new(vec![
+            Row::new(vec![Cell::from("Number")])
+                .style(Style::default().fg(Color::LightCyan))
+                .height(1),
+            Row::new(vec![
+                Cell::from(selected_issue.number.to_string()),
+                Cell::from(selected_issue.title.clone()),
+                Cell::from(selected_issue.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>().join(", ")),
+                Cell::from(selected_issue.state.clone()),
+            ])
+            .style(Style::default().fg(Color::White))
+            .height(2),
+            Row::new(vec![
+                Cell::from("Comments")
+                    .style(Style::default().fg(Color::LightCyan))
+            ]),
+            Row::new(vec![comments_cell])
+                .style(Style::default().fg(Color::White))
+                .height(50),
+        ])
+        .block(
+            Block::default()
+                .title("Details")
+                .borders(Borders::ALL),
+        )
+        .widths(&[Constraint::Min(0)])
+        .highlight_style(
+            Style::default()
+                .add_modifier(Modifier::BOLD)
+                .fg(Color::LightMagenta),
+        )
     } else {
       issue_details = Table::new(vec![
           Row::new(vec![Cell::from("Number")])
