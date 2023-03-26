@@ -39,4 +39,4 @@ Replace myusername and mytoken with your GitHub username and personal access tok
 We welcome contributions to the project. Please feel free to open a pull request or an issue on the GitHub repository.
 
 ## Disclaimer
-This application is not affiliated with, maintained, authorized, endorsed, or sponsored by GitHub Inc. or any of its subsidiaries or affiliates. The official GitHub website can be found at https://github.com.
+This application is not affiliated with, maintained, authorized, endorsed, or sponsored by GitHub Inc. or any of its subsidiaries or affiliates.
