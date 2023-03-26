@@ -12,6 +12,11 @@ export GITHUB_TOKEN=mytoken
 ```
 Replace myusername and mytoken with your GitHub username and personal access token, respectively.
 
+Then either run it locally with
+`cargo run`
+or install it from homebrew:
+`brew install github-assistant`
+
 ## Navigate:
 **Up**: Move up in the list
 
