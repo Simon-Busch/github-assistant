@@ -14,16 +14,25 @@ Replace myusername and mytoken with your GitHub username and personal access tok
 
 ## Navigate:
 **Up**: Move up in the list
+
 **Down**: Move down in the list
+
 **Right**: Display comments for the selected issue/PR
+
 **Left**: Hide comments for the selected issue/PR
+
 
 ## Commands
 **A** : show assignment
+
 **C**: show closed
+
 **Q**: close app
+
 **ENTER**: open the issue in the browser
+
 **p**: show actions
+
 **1**: close issue
 
 ## Contributing
