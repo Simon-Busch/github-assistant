@@ -80,7 +80,7 @@ pub fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Op
         let comments_text: Vec<String> = selected_issue
         .comments_list
         .iter()
-        .filter(|comment| comment.user.login != "netlify[bot]" || comment.user.login != "gatsby-cloud[bot]" )
+        .filter(|comment| comment.user.login != "netlify[bot]" && comment.user.login != "gatsby-cloud[bot]" )
         .map(|comment| {
           let formatted_body = wrap(&comment.body, body_width).join("\n");
           format!("{}: {}", comment.user.login, formatted_body)
