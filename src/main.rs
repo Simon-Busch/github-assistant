@@ -299,7 +299,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                   }
               },
               KeyCode::Char('p') => {
-                  prompt_open = !prompt_open;
+                  if active_open == true {
+                      prompt_open = !prompt_open;
+                  }
               }
               _ => {}
           },

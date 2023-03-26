@@ -30,11 +30,5 @@ pub async fn update_issue_status(repo_owner: String, repo_name: String, issue_nu
         .send()
         .await?;
 
-    if response.status().is_success() {
-        println!("Issue {} successfully.", state);
-    } else {
-        println!("Failed to {} issue.", state);
-    }
-
     Ok(())
 }
