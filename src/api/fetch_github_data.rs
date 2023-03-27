@@ -42,6 +42,9 @@ pub async fn get_github_response(username: &str, access_token: &str, status: &st
       if item.state == "open" {
           let comments_url = &item.comments_url;
           let comments_response = client.get(comments_url).send().await?;
+          if !comments_response.status().is_success() {
+              println!("Error: {}", comments_response.status());
+          }
           let comments_json: Vec<IssueComments> = comments_response.json().await?;
           item.comments_list = comments_json;
       }

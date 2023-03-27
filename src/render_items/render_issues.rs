@@ -78,14 +78,14 @@ pub fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Op
 
     if show_comment == true {
         let comments_text: Vec<String> = selected_issue
-        .comments_list
-        .iter()
-        .filter(|comment| comment.user.login != "netlify[bot]" && comment.user.login != "gatsby-cloud[bot]" )
-        .map(|comment| {
-          let formatted_body = wrap(&comment.body, body_width).join("\n");
-          format!("{}: {}", comment.user.login, formatted_body)
-        })
-        .collect();
+            .comments_list
+            .iter()
+            .filter(|comment| comment.user.login != "netlify[bot]" && comment.user.login != "gatsby-cloud[bot]" )
+            .map(|comment| {
+              let formatted_body = wrap(&comment.body, body_width).join("\n");
+              format!("{}: {}", comment.user.login, formatted_body)
+            })
+            .collect();
         let comments_cell;
         if comments_text.len() == 0 {
             comments_cell = Cell::from("No comments");
