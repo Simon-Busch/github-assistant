@@ -45,3 +45,5 @@ We welcome contributions to the project. Please feel free to open a pull request
 
 ## Disclaimer
 This application is not affiliated with, maintained, authorized, endorsed, or sponsored by GitHub Inc. or any of its subsidiaries or affiliates.
+
+🚧 This is an alpha version, it's possible that you experience some bugs, still actively working on it. If you do, don't hesitate to open an issue
