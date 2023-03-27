@@ -23,7 +23,7 @@ use tui::{
 };
 use crossterm::{
     event::{self, Event as CEvent, KeyCode},
-    terminal::{disable_raw_mode, enable_raw_mode},
+    terminal::{disable_raw_mode, enable_raw_mode, size},
 };
 use std::time::{Duration, Instant};
 use std::io;
@@ -49,6 +49,22 @@ impl From<MenuItem> for usize {
             MenuItem::Closed => 2,
         }
     }
+}
+
+pub struct AppState {
+  // ...
+  pub scroll_offset: usize,
+  pub right_items_count: usize,
+}
+
+impl AppState {
+  pub fn new() -> AppState {
+      AppState {
+          // ...
+          scroll_offset: 0,
+          right_items_count: 0,
+      }
+  }
 }
 
 fn init_variables() -> (String, String) {
@@ -111,8 +127,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Create a flag to keep track of whether the prompt window is open
     let mut prompt_open = false;
+    let mut app_state = AppState::new();
 
     loop {
+        let terminal_size = size().unwrap_or_default();
+        let terminal_height = terminal_size.1 as usize;
+
         terminal.draw(|rect| {
             let size = rect.size();
             let chunks = Layout::default() // define the Menu
@@ -175,10 +195,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         .split(chunks[1]);
 
                       if active_open == true && show_comment == false {
-                            let selected_issue_index =  issue_list_state_open.selected();
-                            let (left, right) = render_issues(&issues_list_open, selected_issue_index, show_comment);
+                            let selected_issue_index = issue_list_state_open.selected();
+                            let (left, right , count) = render_issues(
+                                &issues_list_open,
+                                selected_issue_index,
+                                show_comment,
+                                app_state.scroll_offset,
+                            );
+                            let right_clone = right.clone(); // Clone the right widget
                             rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
-                            rect.render_widget(right, data_chunck[1]);
+                            rect.render_widget(right_clone, data_chunck[1]); // Use the cloned version
+                            app_state.right_items_count = count;
+
+
                             if prompt_open == true {
                               let items = vec![
                                 ListItem::new("  1 - Close issue"),
@@ -186,8 +215,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                               render_popup(rect, items);
                           }
                       } else if active_open == true && show_comment == true {
-                          let selected_issue_index =  issue_list_state_open.selected();
-                          let (left, right) = render_issues(&issues_list_open, selected_issue_index, show_comment);
+
+                        let selected_issue_index =  issue_list_state_open.selected();
+                        let (left, right, count) = render_issues(&issues_list_open, selected_issue_index, show_comment, app_state.scroll_offset);
                           rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
                           rect.render_widget(right, data_chunck[1]);
                       }
@@ -201,7 +231,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                       .split(chunks[1]);
                   if active_open == false {
                       let selected_issue_index =  issue_list_state_closed.selected();
-                      let (left, right) = render_issues(&issues_list_closed, selected_issue_index, show_comment);
+                      let (left, right, count) = render_issues(&issues_list_closed, selected_issue_index, show_comment, app_state.scroll_offset);
                       rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_closed);
                       rect.render_widget(right, data_chunck[1]);
                   }
@@ -261,48 +291,67 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
             }
-              KeyCode::Right => {
+            KeyCode::Right => {
+                if active_open == true {
+                  show_comment = true;
+                }
+            },
+            KeyCode::Left => {
+                if active_open == true {
+                    show_comment = false;
+                }
+            },
+            KeyCode::Char('1')=> {
+                // close issue
+                let state;
+                let list: &Vec<ApiResponseItem>;
                   if active_open == true {
-                    show_comment = true;
+                      state = &mut issue_list_state_open;
+                      list = &issues_list_open;
+                  } else {
+                      state = &mut issue_list_state_closed;
+                      list = &issues_list_closed;
                   }
-              },
-              KeyCode::Left => {
-                  if active_open == true {
-                      show_comment = false;
-                  }
-              },
-              KeyCode::Char('1')=> {
-                  // close issue
-                  let state;
-                  let list: &Vec<ApiResponseItem>;
-                    if active_open == true {
-                        state = &mut issue_list_state_open;
-                        list = &issues_list_open;
-                    } else {
-                        state = &mut issue_list_state_closed;
-                        list = &issues_list_closed;
+                if let Some(selected) = state.selected() {
+                    let number = list[selected].number;
+                    let repo_owner = list[selected].organization.as_ref().unwrap().to_owned();
+                    let repo_name = list[selected].repository.as_ref().unwrap().to_owned();
+                    if prompt_open {
+                        update_issue_status(repo_owner, repo_name, number, &access_token, "closed").await?;
+                        issues_list_open = issues_list_open.into_iter()
+                        .filter(|item| item.number != number)
+                        .collect::<Vec<ApiResponseItem>>();
+                        issue_list_state_open = ListState::default();
+                        issue_list_state_open.select(Some(0));
+                        issues_list_open_len = issues_list_open_len - 1;
+                        prompt_open = false;
                     }
-                  if let Some(selected) = state.selected() {
-                      let number = list[selected].number;
-                      let repo_owner = list[selected].organization.as_ref().unwrap().to_owned();
-                      let repo_name = list[selected].repository.as_ref().unwrap().to_owned();
-                      if prompt_open {
-                          update_issue_status(repo_owner, repo_name, number, &access_token, "closed").await?;
-                          issues_list_open = issues_list_open.into_iter()
-                          .filter(|item| item.number != number)
-                          .collect::<Vec<ApiResponseItem>>();
-                          issue_list_state_open = ListState::default();
-                          issue_list_state_open.select(Some(0));
-                          issues_list_open_len = issues_list_open_len - 1;
-                          prompt_open = false;
-                      }
-                  }
-              },
-              KeyCode::Char('p') => {
-                  if active_open == true {
-                      prompt_open = !prompt_open;
-                  }
+                }
+            },
+            KeyCode::Char('p') => {
+                if active_open == true {
+                    prompt_open = !prompt_open;
+                }
+            }
+
+            KeyCode::Char('d') => {
+              println!("Pressed 'd' key");
+              if app_state.scroll_offset < app_state.right_items_count.saturating_sub(terminal_size.1 as usize) {
+                app_state.scroll_offset += 1;
+            } else {
+                  println!("Reached the maximum scroll offset");
               }
+            },
+            KeyCode::Char('u') => {
+                println!("Pressed 'u' key");
+                if app_state.scroll_offset > 0 {
+                    app_state.scroll_offset -= 1;
+                    println!("scroll offset: {}", app_state.scroll_offset);
+                } else {
+                    println!("Reached the minimum scroll offset");
+                }
+            }
+
               _ => {}
           },
           Event::Tick => {}

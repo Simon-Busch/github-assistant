@@ -4,13 +4,13 @@ use tui::{
   text::{Span, Spans},
   widgets::{Block, BorderType, Borders, Cell, List, ListItem, Row, Table},
 };
-use crate::structs::ApiResponseItem;
+use crate::{structs::ApiResponseItem, AppState};
 use chrono::{Duration as ChronoDuration, Utc, DateTime};
 use textwrap::wrap;
 use crossterm::terminal::size;
 
 
-pub fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option<usize>, show_comment: bool) -> (List<'a>, Table<'a>) {
+pub fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Option<usize>, show_comment: bool, scroll_offset: usize) -> (List<'a>, List<'a>, usize) {
     let mut count = 0;
     // Determine the terminal width, with a default value if it cannot be determined
     let terminal_size = size().unwrap_or_default();
@@ -43,6 +43,8 @@ pub fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Op
                 Span::styled(format!("{: <4} | {: <1} |{: <20}", i.number, indicator, i.title), Style::default().fg(color)),
             ]))
         })
+        // .skip(scroll_offset)
+        // .take(terminal_size.1 as usize - 1)
         .collect();
 
     let issue_list = List::new(items)
@@ -70,160 +72,66 @@ pub fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Op
         .map(|i| &issues[i])
         .unwrap_or(&binding);
 
-    let body_height = match &selected_issue.body {
-          Some(body) => body.lines().count() + 1,
-          None => 1,
-    };
-    let issue_details;
+    let comments_text: Vec<String> = selected_issue
+        .comments_list
+        .iter()
+        .filter(|comment| comment.user.login != "netlify[bot]" && comment.user.login != "gatsby-cloud[bot]" )
+        .map(|comment| {
+          let formatted_body = wrap(&comment.body, body_width).join("\n");
+          format!("{}: {}", comment.user.login, formatted_body)
+        })
+        .collect();
 
-    if show_comment == true {
-        let comments_text: Vec<String> = selected_issue
-            .comments_list
-            .iter()
-            .filter(|comment| comment.user.login != "netlify[bot]" && comment.user.login != "gatsby-cloud[bot]" )
-            .map(|comment| {
-              let formatted_body = wrap(&comment.body, body_width).join("\n");
-              format!("{}: {}", comment.user.login, formatted_body)
-            })
-            .collect();
-        let comments_cell;
-        if comments_text.len() == 0 {
-            comments_cell = Cell::from("No comments");
-        } else {
-            comments_cell = Cell::from(comments_text.join("\n\n"));
-        }
-        issue_details = Table::new(vec![
-            Row::new(vec![Cell::from("Number")])
-                .style(Style::default().fg(Color::LightCyan))
-                .height(1),
-            Row::new(vec![
-                Cell::from(selected_issue.number.to_string()),
-                Cell::from(selected_issue.title.clone()),
-                Cell::from(selected_issue.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>().join(", ")),
-                Cell::from(selected_issue.state.clone()),
-            ])
-            .style(Style::default().fg(Color::White))
-            .height(2),
-            Row::new(vec![
-                Cell::from("Comments")
-                    .style(Style::default().fg(Color::LightCyan))
-            ]),
-            Row::new(vec![comments_cell])
-                .style(Style::default().fg(Color::White))
-                .height(50),
-        ])
-        .block(
-            Block::default()
-                .title("Details")
-                .borders(Borders::ALL),
-        )
-        .widths(&[Constraint::Min(0)])
-        .highlight_style(
-            Style::default()
-                .add_modifier(Modifier::BOLD)
-                .fg(Color::LightMagenta),
-        )
-    } else {
-      issue_details = Table::new(vec![
-          Row::new(vec![Cell::from("Number")])
-          .style(Style::default().fg(Color::LightCyan))
-          .height(1),
-          Row::new(vec![
-              Cell::from(selected_issue.number.to_string()),
-              Cell::from(selected_issue.title.clone()),
-              Cell::from(selected_issue.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>().join(", ")),
-              Cell::from(selected_issue.state.clone()),
-          ])
-          .style(Style::default().fg(Color::White))
-          .height(2),
+    let items = vec![
+        ListItem::new("Number"),
+        ListItem::new(selected_issue.number.to_string()),
+        ListItem::new("Repository"),
+        ListItem::new(match &selected_issue.repository {
+            Some(repository) => repository.to_string(),
+            None => "N/A".to_owned(),
+        }),
+        ListItem::new("Organization"),
+        ListItem::new(match &selected_issue.organization {
+            Some(organization) => organization.to_string(),
+            None => "N/A".to_owned(),
+        }),
+        ListItem::new("Title"),
+        ListItem::new(selected_issue.title.clone()),
+        ListItem::new("State"),
+        ListItem::new(selected_issue.state.clone()),
+        ListItem::new("Labels"),
+        ListItem::new(selected_issue.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>().join(", ")),
+        ListItem::new("Body"),
+        ListItem::new(match &selected_issue.body {
+            Some(body) => wrap(body, body_width).join("\n"),
+            None => "N/A".to_owned(),
+        }),
+        ListItem::new("Comments"),
+        ListItem::new(if comments_text.is_empty() { "No comments".to_owned() } else { comments_text.join("\n\n") }),
+      ];
 
-          Row::new(vec![Cell::from("Repository")])
-          .style(Style::default().fg(Color::LightCyan))
-          .height(1),
-          Row::new(vec![
-              match &selected_issue.repository {
-                  Some(repository) => Cell::from(repository.to_string()),
-                  None => Cell::from("N/A"),
-              },
-          ])
-          .style(Style::default().fg(Color::White))
-          .height(2),
+    let list_items = items.into_iter().map(|i| i.style(Style::default().fg(Color::White))).collect::<Vec<_>>();
+    let scrollable_list = create_scrollable_list(&list_items, scroll_offset);
+  (issue_list, scrollable_list, items.clone().len() as usize)
+}
 
-          Row::new(vec![Cell::from("Organization")])
-          .style(Style::default().fg(Color::LightCyan))
-          .height(1),
-          Row::new(vec![
-              match &selected_issue.organization {
-                  Some(organization) => Cell::from(organization.to_string()),
-                  None => Cell::from("N/A"),
-              },
-          ])
-          .style(Style::default().fg(Color::White))
-          .height(2),
+fn create_scrollable_list<'a>(items: &[ListItem<'a>], scroll_offset: usize) -> List<'a> {
+  let visible_items = items
+      .iter()
+      .skip(scroll_offset)
+      .cloned()
+      .collect::<Vec<ListItem>>();
 
-          Row::new(vec![Cell::from("Title")])
-          .style(Style::default().fg(Color::LightCyan))
-          .height(1),
-          Row::new(vec![
-              Cell::from(selected_issue.title.clone()),
-          ])
-          .style(Style::default().fg(Color::White))
-          .height(2),
-
-          Row::new(vec![Cell::from("Labels")])
-          .style(Style::default().fg(Color::LightCyan))
-          .height(1),
-          Row::new(vec![
-              Cell::from(selected_issue.labels.iter().map(|l| l.name.as_str()).collect::<Vec<_>>().join(", ")),
-          ])
-          .style(Style::default().fg(Color::White))
-          .height(2),
-
-          Row::new(vec![Cell::from("Description")])
-          .style(Style::default().fg(Color::LightCyan))
-          .height(1),
-          Row::new(vec![
-              match &selected_issue.body {
-                  Some(body) => {
-                      let wrapped_body = wrap(body, body_width).join("\n");
-                      Cell::from(wrapped_body)
-                  }
-                  None => Cell::from("N/A"),
-              },
-          ])
-          .style(Style::default().fg(Color::White))
-          .height(body_height.try_into().unwrap()),
-
-          Row::new(vec![Cell::from("Created at")])
-          .style(Style::default().fg(Color::LightCyan))
-          .height(1),
-          Row::new(vec![
-              Cell::from(selected_issue.created_at.clone()),
-          ])
-          .style(Style::default().fg(Color::White))
-          .height(2),
-
-          Row::new(vec![Cell::from("Updated at")])
-          .style(Style::default().fg(Color::LightCyan))
-          .height(1),
-          Row::new(vec![
-              Cell::from(selected_issue.updated_at.clone()),
-          ])
-          .style(Style::default().fg(Color::White))
-          .height(2),
-      ])
+  List::new(visible_items)
       .block(
           Block::default()
               .title("Details")
               .border_type(BorderType::Rounded)
               .borders(Borders::ALL),
       )
-      .widths(&[Constraint::Min(0)])
       .highlight_style(
           Style::default()
               .add_modifier(Modifier::BOLD)
               .fg(Color::LightMagenta),
       )
-    }
-  (issue_list, issue_details)
 }
