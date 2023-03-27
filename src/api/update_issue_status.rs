@@ -22,7 +22,7 @@ pub async fn update_issue_status(repo_owner: String, repo_name: String, issue_nu
     }.to_string();
     let base_url = "https://api.github.com";
     let patch_url = format!("{}/repos/{}/{}/issues/{}", base_url, repo_owner, repo_name, issue_number);
-    let response = client
+    let _response = client
         .patch(&patch_url)
         .header("Authorization", format!("token {}", access_token))
         .header("Content-Type", "application/json")

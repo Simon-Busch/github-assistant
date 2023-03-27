@@ -39,15 +39,13 @@ pub async fn get_github_response(username: &str, access_token: &str, status: &st
       item.repository = Some(url_parts[url_parts.len() - 3].to_string());
       item.organization = Some(url_parts[url_parts.len() - 4].to_string());
       item.is_pr = url_parts.contains(&"pull");
-      if item.state == "open" {
-          let comments_url = &item.comments_url;
-          let comments_response = client.get(comments_url).send().await?;
-          if !comments_response.status().is_success() {
-              println!("Error: {}", comments_response.status());
-          }
-          let comments_json: Vec<IssueComments> = comments_response.json().await?;
-          item.comments_list = comments_json;
+      let comments_url = &item.comments_url;
+      let comments_response = client.get(comments_url).send().await?;
+      if !comments_response.status().is_success() {
+          println!("Error: {}", comments_response.status());
       }
+      let comments_json: Vec<IssueComments> = comments_response.json().await?;
+      item.comments_list = comments_json;
   }
   Ok(items)
 }

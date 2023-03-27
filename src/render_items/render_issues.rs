@@ -110,7 +110,7 @@ pub fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Op
             ]),
             Row::new(vec![comments_cell])
                 .style(Style::default().fg(Color::White))
-                .height(50),
+                .height(30),
         ])
         .block(
             Block::default()
