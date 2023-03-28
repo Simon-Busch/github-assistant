@@ -329,9 +329,3 @@ async fn main() -> Result<(), Box<dyn Error>> {
       }
     Ok(())
 }
-
-async fn refresh_application(username: &str, access_token: &str) -> (Vec<ApiResponseItem>, Vec<ApiResponseItem>, i32, i32) {
-  let (issues_list_open, issues_list_closed, issues_list_open_len, issues_list_closed_len) = init_gh_data(&username, &access_token).await.unwrap();
-
-  (issues_list_open, issues_list_closed, issues_list_open_len, issues_list_closed_len)
-}
