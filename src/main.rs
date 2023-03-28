@@ -39,6 +39,7 @@ enum MenuItem {
     Home,
     Assignments,
     Closed,
+    Refresh,
 }
 
 impl From<MenuItem> for usize {
@@ -47,6 +48,7 @@ impl From<MenuItem> for usize {
             MenuItem::Home => 0,
             MenuItem::Assignments => 1,
             MenuItem::Closed => 2,
+            MenuItem::Refresh => 3,
         }
     }
 }
@@ -92,9 +94,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Render the loading screen
     render_waiting_screen(&mut terminal)?;
 
-    let (mut issues_list_open, issues_list_closed, mut issues_list_open_len, issues_list_closed_len) = init_gh_data(&username, &access_token).await?;
+    let (mut issues_list_open, mut issues_list_closed, mut issues_list_open_len, mut issues_list_closed_len) = init_gh_data(&username, &access_token).await?;
 
-    let menu_titles = vec!["Home","Assignments", "Closed", "Quit"];
+    let menu_titles = vec!["Home","Assignments", "Closed", "Refresh" , "Quit"];
     let mut active_menu_item = MenuItem::Home;
 
     let mut issue_list_state_open = ListState::default();
@@ -128,7 +130,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 )
                 .split(size);
 
-            let copyright = Paragraph::new("Github Assistant - All rights reserved - Simon-Busch ®")
+            let copyright = Paragraph::new("Github Assistant - All rights reserved - V0.1.2 - Simon-Busch ®")
                 .style(Style::default().fg(Color::LightCyan))
                 .alignment(Alignment::Center)
                 .block(
@@ -205,6 +207,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
                       rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_closed);
                       rect.render_widget(right, data_chunck[1]);
                   }
+                },
+                MenuItem::Refresh => {
+                  let data_chunck = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints(
+                        [Constraint::Percentage(30), Constraint::Percentage(70)].as_ref(),
+                    )
+                    .split(chunks[1]);
+                  let selected_issue_index =  issue_list_state_open.selected();
+                  let (left, right) = render_issues(&issues_list_open, selected_issue_index, show_comment);
+                  rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
+                  rect.render_widget(right, data_chunck[1]);
                 },
             }
             rect.render_widget(copyright, chunks[2]);
@@ -302,11 +316,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
                   if active_open == true {
                       prompt_open = !prompt_open;
                   }
+              },
+
+              KeyCode::Char('r') => {
+                (issues_list_open, issues_list_closed, issues_list_open_len, issues_list_closed_len) = init_gh_data(&username, &access_token).await.unwrap();
               }
+
               _ => {}
           },
           Event::Tick => {}
       }
       }
     Ok(())
+}
+
+async fn refresh_application(username: &str, access_token: &str) -> (Vec<ApiResponseItem>, Vec<ApiResponseItem>, i32, i32) {
+  let (issues_list_open, issues_list_closed, issues_list_open_len, issues_list_closed_len) = init_gh_data(&username, &access_token).await.unwrap();
+
+  (issues_list_open, issues_list_closed, issues_list_open_len, issues_list_closed_len)
 }
