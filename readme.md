@@ -16,6 +16,8 @@ Then either run it locally with
 `cargo run`
 or install it from homebrew:
 `brew install github-assistant`
+And run it with
+`github-assistant`
 
 ## Navigate:
 **Up**: Move up in the list
