@@ -40,6 +40,7 @@ enum MenuItem {
     Assignments,
     Closed,
     Refresh,
+    ToReview,
 }
 
 impl From<MenuItem> for usize {
@@ -49,6 +50,7 @@ impl From<MenuItem> for usize {
             MenuItem::Assignments => 1,
             MenuItem::Closed => 2,
             MenuItem::Refresh => 3,
+            MenuItem::ToReview => 4,
         }
     }
 }
@@ -94,9 +96,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Render the loading screen
     render_waiting_screen(&mut terminal)?;
 
-    let (mut issues_list_open, mut issues_list_closed, mut issues_list_open_len, mut issues_list_closed_len) = init_gh_data(&username, &access_token).await?;
+    let (mut issues_list_open, mut issues_list_closed, mut assigned_pr_list, mut issues_list_open_len, mut issues_list_closed_len, mut assigned_pr_list_len) = init_gh_data(&username, &access_token).await?;
 
-    let menu_titles = vec!["Home","Assignments", "Closed", "Refresh" , "Quit"];
+    let menu_titles = vec!["Home","Assignments", "Closed", "Refresh", "To Review", "Quit"];
     let mut active_menu_item = MenuItem::Home;
 
     let mut issue_list_state_open = ListState::default();
@@ -104,6 +106,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut issue_list_state_closed = ListState::default();
     issue_list_state_closed.select(Some(0));
+
+    let mut issue_list_state_to_review = ListState::default();
+    issue_list_state_to_review.select(Some(0));
 
     let mut action_list_state = ListState::default();
     action_list_state.select(Some(0));
@@ -167,7 +172,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             rect.render_widget(tabs, chunks[0]);
             match active_menu_item {
-                MenuItem::Home => rect.render_widget(render_home(&issues_list_open_len, &issues_list_closed_len, &username), chunks[1]),
+                MenuItem::Home => rect.render_widget(render_home(&issues_list_open_len, &issues_list_closed_len, &assigned_pr_list_len, &username), chunks[1]),
                 MenuItem::Assignments => {
                     let data_chunck = Layout::default()
                         .direction(Direction::Horizontal)
@@ -209,17 +214,41 @@ async fn main() -> Result<(), Box<dyn Error>> {
                   }
                 },
                 MenuItem::Refresh => {
-                  let data_chunck = Layout::default()
-                    .direction(Direction::Horizontal)
-                    .constraints(
-                        [Constraint::Percentage(30), Constraint::Percentage(70)].as_ref(),
-                    )
-                    .split(chunks[1]);
-                  let selected_issue_index =  issue_list_state_open.selected();
-                  let (left, right) = render_issues(&issues_list_open, selected_issue_index, show_comment);
-                  rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
-                  rect.render_widget(right, data_chunck[1]);
+                  // let data_chunck = Layout::default()
+                  //   .direction(Direction::Horizontal)
+                  //   .constraints(
+                  //       [Constraint::Percentage(30), Constraint::Percentage(70)].as_ref(),
+                  //   )
+                  //   .split(chunks[1]);
+                  // let selected_issue_index =  issue_list_state_open.selected();
+                  // let (left, right) = render_issues(&issues_list_open, selected_issue_index, show_comment);
+                  // rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
+                  // rect.render_widget(right, data_chunck[1]);
                 },
+
+                MenuItem::ToReview => {
+                    let data_chunck = Layout::default()
+                        .direction(Direction::Horizontal)
+                        .constraints(
+                            [Constraint::Percentage(30), Constraint::Percentage(70)].as_ref(),
+                        )
+                        .split(chunks[1]);
+                      let selected_issue_index =  issue_list_state_to_review.selected();
+                      let (left, right) = render_issues(&assigned_pr_list, selected_issue_index, show_comment);
+                      rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_to_review);
+                      rect.render_widget(right, data_chunck[1]);
+                      println!("triggered");
+                      println!("triggered");
+                      println!("triggered");
+                      println!("triggered");
+                      println!("triggered");
+                      println!("triggered");
+                      println!("triggered");
+                      println!("triggered");
+                      println!("triggered");
+                      println!("triggered");
+                      println!("triggered");
+                }
             }
             rect.render_widget(copyright, chunks[2]);
         })?;
@@ -319,7 +348,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
               },
 
               KeyCode::Char('r') => {
-                (issues_list_open, issues_list_closed, issues_list_open_len, issues_list_closed_len) = init_gh_data(&username, &access_token).await.unwrap();
+                (issues_list_open, issues_list_closed, assigned_pr_list, issues_list_open_len, issues_list_closed_len, assigned_pr_list_len) = init_gh_data(&username, &access_token).await.unwrap();
+              }
+
+              KeyCode::Char('t') => {
+                  MenuItem::ToReview;
               }
 
               _ => {}
