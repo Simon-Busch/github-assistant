@@ -26,7 +26,7 @@ pub async fn init_gh_data(username: &str, access_token: &str) -> Result<(Vec<Api
   issues_list_closed.reverse();
   // Get list of Assigned for review PR
   let assigned_pr = fetch_github_pr_review(username, access_token).await?;
-  let mut assigned_pr_list = issues_list_response_closed.items.to_owned();
+  let mut assigned_pr_list = assigned_pr.items.to_owned();
   assigned_pr_list.sort_by_key(|i| parse_date_string(&i.updated_at));
   assigned_pr_list.reverse();
 
