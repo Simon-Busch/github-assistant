@@ -215,16 +215,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 },
                 MenuItem::Refresh => {
-                  // let data_chunck = Layout::default()
-                  //   .direction(Direction::Horizontal)
-                  //   .constraints(
-                  //       [Constraint::Percentage(30), Constraint::Percentage(70)].as_ref(),
-                  //   )
-                  //   .split(chunks[1]);
-                  // let selected_issue_index =  issue_list_state_open.selected();
-                  // let (left, right) = render_issues(&issues_list_open, selected_issue_index, show_comment);
-                  // rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
-                  // rect.render_widget(right, data_chunck[1]);
                 },
                 MenuItem::ToReview => {
                     let data_chunck = Layout::default()
