@@ -188,10 +188,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
                             rect.render_widget(right, data_chunck[1]);
                             if prompt_open == true {
-                              let items = vec![
-                                ListItem::new("  1 - Close issue"),
-                                ];
-                              render_popup(rect, items);
+                                let items = vec![
+                                    ListItem::new("  1 - Close issue"),
+                                    ];
+                                render_popup(rect, items);
                           }
                       } else if active_open == true && show_comment == true {
                           let selected_issue_index =  issue_list_state_open.selected();
@@ -201,18 +201,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
                       }
                 },
                 MenuItem::Closed => {
-                  let data_chunck = Layout::default()
-                      .direction(Direction::Horizontal)
-                      .constraints(
-                          [Constraint::Percentage(30), Constraint::Percentage(70)].as_ref(),
-                      )
-                      .split(chunks[1]);
-                  if active_open == false {
-                      let selected_issue_index =  issue_list_state_closed.selected();
-                      let (left, right) = render_issues(&issues_list_closed, selected_issue_index, show_comment);
-                      rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_closed);
-                      rect.render_widget(right, data_chunck[1]);
-                  }
+                    let data_chunck = Layout::default()
+                        .direction(Direction::Horizontal)
+                        .constraints(
+                            [Constraint::Percentage(30), Constraint::Percentage(70)].as_ref(),
+                        )
+                        .split(chunks[1]);
+                    if active_open == false {
+                        let selected_issue_index =  issue_list_state_closed.selected();
+                        let (left, right) = render_issues(&issues_list_closed, selected_issue_index, show_comment);
+                        rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_closed);
+                        rect.render_widget(right, data_chunck[1]);
+                    }
                 },
                 MenuItem::Refresh => {
                   // let data_chunck = Layout::default()
@@ -273,7 +273,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     &assigned_pr_list
                 );
                 move_selection(state, items, 1);
-            }
+              }
               KeyCode::Up => {
                   let (state, _) = get_current_state_and_list(
                       active_open,
@@ -319,13 +319,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                   // close issue
                   let state;
                   let list: &Vec<ApiResponseItem>;
-                    if active_open == true {
-                        state = &mut issue_list_state_open;
-                        list = &issues_list_open;
-                    } else {
-                        state = &mut issue_list_state_closed;
-                        list = &issues_list_closed;
-                    }
+                      if active_open == true {
+                          state = &mut issue_list_state_open;
+                          list = &issues_list_open;
+                      } else {
+                          state = &mut issue_list_state_closed;
+                          list = &issues_list_closed;
+                      }
                   if let Some(selected) = state.selected() {
                       let number = list[selected].number;
                       let repo_owner = list[selected].organization.as_ref().unwrap().to_owned();
@@ -348,18 +348,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
                   }
               },
               KeyCode::Char('r') => {
-                (issues_list_open, issues_list_closed, assigned_pr_list, issues_list_open_len, issues_list_closed_len, assigned_pr_list_len) = init_gh_data(&username, &access_token).await.unwrap();
+                  (issues_list_open, issues_list_closed, assigned_pr_list, issues_list_open_len, issues_list_closed_len, assigned_pr_list_len) = init_gh_data(&username, &access_token).await.unwrap();
               },
               KeyCode::Char('t') => {
-                if to_review_open == false {
-                    to_review_open = true;
-                    active_menu_item = MenuItem::ToReview;
-                }
+                  if to_review_open == false {
+                      to_review_open = true;
+                      active_menu_item = MenuItem::ToReview;
+                  }
               },
               _ => {}
             },
             Event::Tick => {}
-      }
+          }
       }
     Ok(())
 }
