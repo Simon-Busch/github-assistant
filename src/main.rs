@@ -14,7 +14,7 @@ use dotenv::dotenv;
 use tokio;
 use std::{error::Error, sync::mpsc};
 use tui::{
-    backend::{CrosstermBackend},
+    backend::CrosstermBackend,
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Span, Spans},
@@ -115,6 +115,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut active_open = true;
     let mut show_comment = false;
+    let mut to_review_open = false;
 
     // Create a flag to keep track of whether the prompt window is open
     let mut prompt_open = false;
@@ -252,47 +253,58 @@ async fn main() -> Result<(), Box<dyn Error>> {
               KeyCode::Char('h') => active_menu_item = MenuItem::Home,
               KeyCode::Char('a') => {
                   active_open = true;
-                  active_menu_item = MenuItem::Assignments
+                  to_review_open = false;
+                  active_menu_item = MenuItem::Assignments;
               },
               KeyCode::Char('c') => {
                   active_open = false;
+                  to_review_open = false;
                   active_menu_item = MenuItem::Closed
               },
               KeyCode::Down => {
                 let (state, items) = get_current_state_and_list(
                     active_open,
+                    to_review_open,
                     &mut issue_list_state_open,
                     &mut issue_list_state_closed,
+                    &mut issue_list_state_to_review,
                     &issues_list_open,
                     &issues_list_closed,
+                    &assigned_pr_list
                 );
                 move_selection(state, items, 1);
             }
-            KeyCode::Up => {
-                let (state, _) = get_current_state_and_list(
-                    active_open,
-                    &mut issue_list_state_open,
-                    &mut issue_list_state_closed,
-                    &issues_list_open,
-                    &issues_list_closed,
-                );
-                move_selection(state, &issues_list_open, -1);
-            }
-            KeyCode::Enter => {
-                let (state, list) = get_current_state_and_list(
-                    active_open,
-                    &mut issue_list_state_open,
-                    &mut issue_list_state_closed,
-                    &issues_list_open,
-                    &issues_list_closed,
-                );
-                if let Some(selected) = state.selected() {
-                    let url = &list[selected].url;
-                    if let Err(e) = open::that(url) {
-                        eprintln!("Failed to open URL '{}': {}", url, e);
-                    }
-                }
-            }
+              KeyCode::Up => {
+                  let (state, _) = get_current_state_and_list(
+                      active_open,
+                      to_review_open,
+                      &mut issue_list_state_open,
+                      &mut issue_list_state_closed,
+                      &mut issue_list_state_to_review,
+                      &issues_list_open,
+                      &issues_list_closed,
+                      &assigned_pr_list
+                  );
+                  move_selection(state, &issues_list_open, -1);
+              }
+              KeyCode::Enter => {
+                  let (state, list) = get_current_state_and_list(
+                      active_open,
+                      to_review_open,
+                      &mut issue_list_state_open,
+                      &mut issue_list_state_closed,
+                      &mut issue_list_state_to_review,
+                      &issues_list_open,
+                      &issues_list_closed,
+                      &assigned_pr_list
+                  );
+                  if let Some(selected) = state.selected() {
+                      let url = &list[selected].url;
+                      if let Err(e) = open::that(url) {
+                          eprintln!("Failed to open URL '{}': {}", url, e);
+                      }
+                  }
+              }
               KeyCode::Right => {
                   if active_open == true {
                     show_comment = true;
@@ -335,18 +347,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
                       prompt_open = !prompt_open;
                   }
               },
-
               KeyCode::Char('r') => {
                 (issues_list_open, issues_list_closed, assigned_pr_list, issues_list_open_len, issues_list_closed_len, assigned_pr_list_len) = init_gh_data(&username, &access_token).await.unwrap();
-              }
-
+              },
               KeyCode::Char('t') => {
-                active_menu_item = MenuItem::ToReview;
-              }
-
+                if to_review_open == false {
+                    to_review_open = true;
+                    active_menu_item = MenuItem::ToReview;
+                }
+              },
               _ => {}
-          },
-          Event::Tick => {}
+            },
+            Event::Tick => {}
       }
       }
     Ok(())
