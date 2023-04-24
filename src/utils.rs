@@ -14,12 +14,17 @@ pub fn centered_rect(width: u16, height: u16, parent: Rect) -> Rect {
 
 pub fn get_current_state_and_list<'a>(
     active_open: bool,
+    is_pr_review: bool,
     issue_list_state_open: &'a mut ListState,
     issue_list_state_closed: &'a mut ListState,
+    issue_list_state_to_review: &'a mut ListState,
     issues_list_open: &'a Vec<ApiResponseItem>,
     issues_list_closed: &'a Vec<ApiResponseItem>,
+    assigned_pr_list: &'a Vec<ApiResponseItem>,
 ) -> (&'a mut ListState, &'a Vec<ApiResponseItem>) {
-    if active_open {
+    if is_pr_review {
+        (issue_list_state_to_review, assigned_pr_list)
+    } else if active_open {
         (issue_list_state_open, issues_list_open)
     } else {
         (issue_list_state_closed, issues_list_closed)

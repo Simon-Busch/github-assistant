@@ -3,7 +3,7 @@ use reqwest::header;
 
 use crate::structs;
 use structs::{ApiResponse, IssueComments};
-use std::{error::Error};
+use std::error::Error;
 
 
 pub async fn get_github_response(username: &str, access_token: &str, status: &str) -> Result<ApiResponse, Box<dyn Error>> {
