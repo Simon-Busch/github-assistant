@@ -15,7 +15,6 @@ pub fn render_issues<'a>(issues: &Vec<ApiResponseItem>, selected_issue_index: Op
     // Determine the terminal width, with a default value if it cannot be determined
     let terminal_size = size().unwrap_or_default();
     let terminal_width = terminal_size.0 as usize;
-    let terminal_height = terminal_size.1 as usize;
     let percentage = 0.65;
     let body_width = (terminal_width as f32 * percentage) as usize;
 

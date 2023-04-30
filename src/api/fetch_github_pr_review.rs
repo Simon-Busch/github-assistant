@@ -39,5 +39,6 @@ pub async fn fetch_github_pr_review(username: &str, access_token: &str) -> Resul
       item.organization = Some(url_parts[url_parts.len() - 4].to_string());
       item.is_pr = url_parts.contains(&"pull");
     }
+    println!("{:?}", items.items);
     Ok(items)
 }
