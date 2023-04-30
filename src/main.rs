@@ -227,7 +227,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 MenuItem::ToReview => {
                   if assigned_pr_list_len == 0  {
                       render_error(rect, "No Assigned PR");
-        
+                       // Wait for 5 seconds
+                       //!!not working
+                      std::thread::sleep(std::time::Duration::from_secs(5));
+                      // Set the active menu item to Home
+                      active_menu_item = MenuItem::Home;
                   } else {
                     let data_chunck = Layout::default()
                         .direction(Direction::Horizontal)
