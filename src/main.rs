@@ -136,7 +136,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 )
                 .split(size);
 
-            let copyright = Paragraph::new("Github Assistant - All rights reserved - V0.1.3 - Simon-Busch ®")
+            let copyright = Paragraph::new("Github Assistant - All rights reserved - V0.1.4 - Simon-Busch ®")
                 .style(Style::default().fg(Color::LightCyan))
                 .alignment(Alignment::Center)
                 .block(
