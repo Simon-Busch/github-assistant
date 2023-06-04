@@ -5,7 +5,7 @@ mod api;
 use api::{init_gh_data, update_issue_status};
 
 mod render_items;
-use render_items::{render_home, render_issues, render_waiting_screen, render_popup};
+use render_items::{render_home, render_issues, render_waiting_screen, render_popup, render_error};
 
 mod utils;
 use utils::{get_current_state_and_list, move_selection};
@@ -175,48 +175,64 @@ async fn main() -> Result<(), Box<dyn Error>> {
             match active_menu_item {
                 MenuItem::Home => rect.render_widget(render_home(&issues_list_open_len, &issues_list_closed_len, &assigned_pr_list_len, &username), chunks[1]),
                 MenuItem::Assignments => {
-                    let data_chunck = Layout::default()
-                        .direction(Direction::Horizontal)
-                        .constraints(
-                            [Constraint::Percentage(30), Constraint::Percentage(70)].as_ref(),
-                        )
-                        .split(chunks[1]);
+                    if issues_list_open_len == 0 {
+                      render_error(rect, "No assigned issues found");
+                    } else {
+                      let data_chunck = Layout::default()
+                          .direction(Direction::Horizontal)
+                          .constraints(
+                              [Constraint::Percentage(30), Constraint::Percentage(70)].as_ref(),
+                          )
+                          .split(chunks[1]);
 
-                      if active_open == true && show_comment == false {
+                        if active_open == true && show_comment == false {
+                              let selected_issue_index =  issue_list_state_open.selected();
+                              let (left, right) = render_issues(&issues_list_open, selected_issue_index, show_comment);
+                              rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
+                              rect.render_widget(right, data_chunck[1]);
+                              if prompt_open == true {
+                                  let items = vec![
+                                      ListItem::new("  1 - Close issue"),
+                                      ];
+                                  render_popup(rect, items);
+                            }
+                        } else if active_open == true && show_comment == true {
                             let selected_issue_index =  issue_list_state_open.selected();
                             let (left, right) = render_issues(&issues_list_open, selected_issue_index, show_comment);
                             rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
                             rect.render_widget(right, data_chunck[1]);
-                            if prompt_open == true {
-                                let items = vec![
-                                    ListItem::new("  1 - Close issue"),
-                                    ];
-                                render_popup(rect, items);
-                          }
-                      } else if active_open == true && show_comment == true {
-                          let selected_issue_index =  issue_list_state_open.selected();
-                          let (left, right) = render_issues(&issues_list_open, selected_issue_index, show_comment);
-                          rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
-                          rect.render_widget(right, data_chunck[1]);
-                      }
+                        }
+                    }
                 },
                 MenuItem::Closed => {
-                    let data_chunck = Layout::default()
-                        .direction(Direction::Horizontal)
-                        .constraints(
-                            [Constraint::Percentage(30), Constraint::Percentage(70)].as_ref(),
-                        )
-                        .split(chunks[1]);
-                    if active_open == false {
-                        let selected_issue_index =  issue_list_state_closed.selected();
-                        let (left, right) = render_issues(&issues_list_closed, selected_issue_index, show_comment);
-                        rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_closed);
-                        rect.render_widget(right, data_chunck[1]);
+                    if issues_list_closed_len == 0 {
+                      render_error(rect, "No closed issues found");
+                    } else {
+                      let data_chunck = Layout::default()
+                          .direction(Direction::Horizontal)
+                          .constraints(
+                              [Constraint::Percentage(30), Constraint::Percentage(70)].as_ref(),
+                          )
+                          .split(chunks[1]);
+                      if active_open == false {
+                          let selected_issue_index =  issue_list_state_closed.selected();
+                          let (left, right) = render_issues(&issues_list_closed, selected_issue_index, show_comment);
+                          rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_closed);
+                          rect.render_widget(right, data_chunck[1]);
+                      }
                     }
                 },
                 MenuItem::Refresh => {
                 },
                 MenuItem::ToReview => {
+                  if assigned_pr_list_len == 0  {
+                      render_error(rect, "No Assigned PR");
+                       // Wait for 5 seconds
+                      //TODO
+                     // std::thread::sleep(std::time::Duration::from_secs(5));
+                      // Set the active menu item to Home
+                      active_menu_item = MenuItem::Home;
+                  } else {
                     let data_chunck = Layout::default()
                         .direction(Direction::Horizontal)
                         .constraints(
@@ -224,10 +240,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         )
                         .split(chunks[1]);
                         let selected_issue_index =  issue_list_state_to_review.selected();
-                        // println!("assigned_pr_list: {:?}", assigned_pr_list );
                         let (left, right) = render_issues(&assigned_pr_list, selected_issue_index, show_comment);
                         rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_to_review);
                         rect.render_widget(right, data_chunck[1]);
+
+                  }
                 }
             }
             rect.render_widget(copyright, chunks[2]);
