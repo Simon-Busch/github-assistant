@@ -30,22 +30,26 @@ And run it with
 
 
 ## Commands
-**A** : show assignment
+**CTRL + a** : show assignment
 
-**C**: show closed
+**CTRL + c**: show closed
 
-**Q**: close app
+**CTRL + h**: home
+
+**q**: close app
+
+**CTRL + r**: reload content
 
 **ENTER**: open the issue in the browser
 
-**p**: show actions
+**CTRL + p**: show actions
 
 **1**: close issue
 
 ## Contributing
-We welcome contributions to the project. Please feel free to open a pull request or an issue on the GitHub repository.
+Contributions are more than welcome. Please feel free to open a pull request or an issue on the GitHub repository.
 
 ## Disclaimer
 This application is not affiliated with, maintained, authorized, endorsed, or sponsored by GitHub Inc. or any of its subsidiaries or affiliates.
 
-🚧 This is an alpha version, it's possible that you experience some bugs, still actively working on it. If you do, don't hesitate to open an issue
+🚧 This is an alpha version, it's possible that you experience some bugs, still actively working on it. If you do, don't hesitate to open an issue.

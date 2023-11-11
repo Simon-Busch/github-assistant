@@ -32,8 +32,8 @@ pub async fn get_github_response(username: &str, access_token: &str, status: &st
         .await?
         .text()
         .await?;
-
     let mut items: ApiResponse = serde_json::from_str(&github_response)?;
+
     for item in items.items.iter_mut() {
         let url_parts: Vec<&str> = item.url.split("/").collect();
         item.repository = Some(url_parts[url_parts.len() - 3].to_string());

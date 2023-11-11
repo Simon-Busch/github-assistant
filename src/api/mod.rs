@@ -10,7 +10,7 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 
 fn parse_date_string(date_string: &str) -> DateTime<Utc> {
   let naive_date = NaiveDateTime::parse_from_str(date_string, "%Y-%m-%dT%H:%M:%SZ").unwrap();
-  DateTime::from_utc(naive_date, Utc)
+  DateTime::from_naive_utc_and_offset(naive_date, Utc)
 }
 
 pub async fn init_gh_data(username: &str, access_token: &str) -> Result<(Vec<ApiResponseItem>, Vec<ApiResponseItem>, Vec<ApiResponseItem>, i32, i32, i32), Box<dyn Error>> {
