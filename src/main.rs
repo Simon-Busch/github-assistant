@@ -22,7 +22,7 @@ use tui::{
     Terminal,
 };
 use crossterm::{
-    event::{self, Event as CEvent, KeyCode},
+    event::{self, Event as CEvent, KeyCode, KeyEvent, KeyModifiers},
     terminal::{disable_raw_mode, enable_raw_mode},
 };
 use std::time::{Duration, Instant};
@@ -251,24 +251,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
         })?;
 
       match rx.recv()? {
-          Event::Input(event) => match event.code {
-              KeyCode::Char('q') => {
+          Event::Input(event) => match (event.code, event.modifiers) {
+              (KeyCode::Char('q'), _) => {
                   disable_raw_mode()?;
                   terminal.show_cursor()?;
                   break;
               },
-              KeyCode::Char('h') => active_menu_item = MenuItem::Home,
-              KeyCode::Char('a') => {
+              (KeyCode::Char('h'), KeyModifiers::CONTROL) => active_menu_item = MenuItem::Home,
+              (KeyCode::Char('a'), KeyModifiers::CONTROL) => {
                   active_open = true;
                   to_review_open = false;
                   active_menu_item = MenuItem::Assignments;
               },
-              KeyCode::Char('c') => {
+              (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
                   active_open = false;
                   to_review_open = false;
                   active_menu_item = MenuItem::Closed
               },
-              KeyCode::Down => {
+              (KeyCode::Down, _) => {
                 let (state, items) = get_current_state_and_list(
                     active_open,
                     to_review_open,
@@ -281,7 +281,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 );
                 move_selection(state, items, 1);
               }
-              KeyCode::Up => {
+              (KeyCode::Up, _) => {
                   let (state, _) = get_current_state_and_list(
                       active_open,
                       to_review_open,
@@ -294,7 +294,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                   );
                   move_selection(state, &issues_list_open, -1);
               }
-              KeyCode::Enter => {
+              (KeyCode::Enter, _) => {
                   let (state, list) = get_current_state_and_list(
                       active_open,
                       to_review_open,
@@ -312,17 +312,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
                       }
                   }
               }
-              KeyCode::Right => {
+              (KeyCode::Right, _) => {
                   if active_open == true {
                     show_comment = true;
                   }
               },
-              KeyCode::Left => {
+              (KeyCode::Left, _) => {
                   if active_open == true {
                       show_comment = false;
                   }
               },
-              KeyCode::Char('1')=> {
+              (KeyCode::Char('1'), _)=> {
                   // close issue
                   let state;
                   let list: &Vec<ApiResponseItem>;
@@ -349,15 +349,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
                       }
                   }
               },
-              KeyCode::Char('p') => {
+              (KeyCode::Char('p'), _) => {
                   if active_open == true {
                       prompt_open = !prompt_open;
                   }
               },
-              KeyCode::Char('r') => {
+              (KeyCode::Char('r'), KeyModifiers::CONTROL) => {
                   (issues_list_open, issues_list_closed, assigned_pr_list, issues_list_open_len, issues_list_closed_len, assigned_pr_list_len) = init_gh_data(&username, &access_token).await.unwrap();
               },
-              KeyCode::Char('t') => {
+              (KeyCode::Char('t'), KeyModifiers::CONTROL) => {
                   if to_review_open == false {
                       to_review_open = true;
                       active_menu_item = MenuItem::ToReview;
