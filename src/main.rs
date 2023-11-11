@@ -8,7 +8,7 @@ mod render_items;
 use render_items::{render_home, render_issues, render_waiting_screen, render_popup, render_error};
 
 mod utils;
-use utils::{get_current_state_and_list, move_selection};
+use utils::{get_current_state_and_list, move_selection, get_org_list, get_repo_list};
 
 use dotenv::dotenv;
 use tokio;
@@ -18,11 +18,11 @@ use tui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Span, Spans},
-    widgets::{Block, BorderType, Borders, ListItem, ListState, Paragraph, Tabs},
+    widgets::{Block, BorderType, Borders, ListState, Paragraph, Tabs},
     Terminal,
 };
 use crossterm::{
-    event::{self, Event as CEvent, KeyCode, KeyEvent, KeyModifiers},
+    event::{self, Event as CEvent, KeyCode, KeyModifiers},
     terminal::{disable_raw_mode, enable_raw_mode},
 };
 use std::time::{Duration, Instant};
@@ -119,9 +119,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Create a flag to keep track of whether the prompt window is open
     let mut prompt_open = false;
+    let mut show_org_modal = false;
+    let mut org_list: Vec<String> = vec![];
 
     loop {
-        terminal.draw(|rect| {
+      terminal.draw(|rect| {
             let size = rect.size();
             let chunks = Layout::default() // define the Menu
                 .direction(Direction::Vertical)
@@ -190,12 +192,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                               let (left, right) = render_issues(&issues_list_open, selected_issue_index, show_comment);
                               rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
                               rect.render_widget(right, data_chunck[1]);
-                              if prompt_open == true {
-                                  let items = vec![
-                                      ListItem::new("  1 - Close issue"),
-                                      ];
-                                  render_popup(rect, items);
-                            }
+                              if prompt_open == true && show_org_modal == false {
+                                  render_popup(rect, [].to_vec());
+                              } else if prompt_open == true && show_org_modal == true {
+                                  //TODO fix this
+                                  render_popup(rect, org_list.clone());
+                              }
                         } else if active_open == true && show_comment == true {
                             let selected_issue_index =  issue_list_state_open.selected();
                             let (left, right) = render_issues(&issues_list_open, selected_issue_index, show_comment);
@@ -348,6 +350,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
                           prompt_open = false;
                       }
                   }
+              },
+              (KeyCode::Char('2'), _)=> {
+                // Show org modal:
+                show_org_modal = true;
+                match active_menu_item {
+                  MenuItem::Home => {}
+                  MenuItem::Assignments => {
+                    org_list = get_org_list(&issues_list_open)
+                  }
+                  MenuItem::Closed => {
+                    org_list = get_org_list(&issues_list_closed)
+
+                  }
+                  MenuItem::Refresh => {}
+                  MenuItem::ToReview => {}
+                }
+              },
+              (KeyCode::Char('3'), _)=> {
+                // TODO handle this to filter by repository
+                //get_repo_list
               },
               (KeyCode::Char('p'), _) => {
                   if active_open == true {

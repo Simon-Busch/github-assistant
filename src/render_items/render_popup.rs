@@ -2,8 +2,26 @@ use tui::{Frame, backend::Backend, widgets::{ListItem, List, Block, Borders, Cle
 
 use crate::utils::centered_rect;
 
-pub fn render_popup(rect: &mut Frame<impl Backend>, items: Vec<ListItem>) {
-  let list = List::new(items)
+fn convert_to_list_items(org_list: &Vec<String>) -> Vec<ListItem> {
+  org_list
+      .into_iter()
+      .map(|content| ListItem::new(&**content))
+      .collect()
+}
+
+pub fn render_popup(rect: &mut Frame<impl Backend>, items: Vec<String>) {
+    let default_items = vec![
+        "  1 - Close issue".to_string(),
+        "  2 - Choose organisation".to_string(),
+        "  3 - Choose repository".to_string(),
+    ];
+
+    let items = if items.is_empty() {
+        &default_items
+    } else {
+        &items
+    };
+  let list = List::new(convert_to_list_items(&items))
       .block(
           Block::default()
               .borders(Borders::ALL)

@@ -37,3 +37,38 @@ pub fn move_selection(state: &mut ListState, items: &Vec<ApiResponseItem>, delta
         state.select(Some(next as usize));
     }
 }
+
+// pub fn filter_issues(issues: &Vec<ApiResponseItem>, filter: &str) -> Vec<ApiResponseItem> {
+//     let mut filtered_issues: Vec<ApiResponseItem> = vec![];
+//     for issue in issues {
+//         if issue.organization.contains(filter) {
+//             filtered_issues.push(issue.clone());
+//         }
+//     }
+//     filtered_issues
+// }
+
+
+pub fn get_org_list(issues: &Vec<ApiResponseItem>) -> Vec<String> {
+  let mut org_list: Vec<String> = vec![];
+  for issue in issues {
+      if let Some(organization) = &issue.organization {
+          if !org_list.contains(organization) {
+              org_list.push(organization.clone());
+          }
+      }
+  }
+  org_list
+}
+
+pub fn get_repo_list(issues: &Vec<ApiResponseItem>) -> Vec<String> {
+  let mut repo_list: Vec<String> = vec![];
+  for issue in issues {
+      if let Some(repository) = &issue.repository {
+          if !repo_list.contains(repository) {
+              repo_list.push(repository.clone());
+          }
+      }
+  }
+  repo_list
+}
