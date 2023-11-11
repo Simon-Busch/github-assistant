@@ -19,9 +19,9 @@ serde = { version = "1.0.130", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 futures = "0.3"
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
-tui = { version = "0.14", default-features = false, features = ['crossterm', 'serde'] }
-crossterm = { version = "0.19", features = [ "serde" ] }
-open = "3.0"
-termion = "1.5.6"
-textwrap = "0.14.1"
+tui = { version = "0.19.0", default-features = false, features = ['crossterm', 'serde'] }
+crossterm = { version = "0.27.0", features = [ "serde" ] }
+open = "5.0.0"
+termion = "2.0.3"
+textwrap = "0.16.0"
 chrono = "0.4.19"
