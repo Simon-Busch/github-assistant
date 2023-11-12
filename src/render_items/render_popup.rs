@@ -2,8 +2,8 @@ use tui::{Frame, backend::Backend, widgets::{ListItem, List, Block, Borders, Cle
 
 use crate::utils::centered_rect;
 
-fn convert_to_list_items(org_list: &Vec<String>) -> Vec<ListItem> {
-  org_list
+fn convert_to_list_items(list: &Vec<String>) -> Vec<ListItem> {
+  list
       .into_iter()
       .map(|content| ListItem::new(&**content))
       .collect()
@@ -21,24 +21,25 @@ pub fn render_popup(rect: &mut Frame<impl Backend>, items: Vec<String>) {
     } else {
         &items
     };
-  let list = List::new(convert_to_list_items(&items))
-      .block(
-          Block::default()
-              .borders(Borders::ALL)
-              .title("Actions"),
-      )
-      .highlight_style(Style::default().add_modifier(Modifier::BOLD))
-      .highlight_symbol(">> ");
 
-  let popup = Block::default()
-      .borders(Borders::ALL)
-      .title("Select an action")
-      .style(Style::default().fg(Color::White).bg(Color::DarkGray));
+    let list = List::new(convert_to_list_items(&items))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Actions"),
+        )
+        .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+        .highlight_symbol(">> ");
 
-  let popup_chunk = centered_rect(25, 10, rect.size()); // Adjust the width and height values as needed
+    let popup = Block::default()
+        .borders(Borders::ALL)
+        .title("Select an action")
+        .style(Style::default().fg(Color::White).bg(Color::DarkGray));
 
-  // Render the list on top of the existing widgets
-  rect.render_widget(popup, popup_chunk);
-  rect.render_widget(Clear, popup_chunk);
-  rect.render_widget(list, popup_chunk);
+    let popup_chunk = centered_rect(25, 10, rect.size()); // Adjust the width and height values as needed
+
+    // Render the list on top of the existing widgets
+    rect.render_widget(popup, popup_chunk);
+    rect.render_widget(Clear, popup_chunk);
+    rect.render_widget(list, popup_chunk);
 }

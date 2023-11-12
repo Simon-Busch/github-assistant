@@ -120,7 +120,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Create a flag to keep track of whether the prompt window is open
     let mut prompt_open = false;
     let mut show_org_modal = false;
+    let mut show_repo_modal = false;
     let mut org_list: Vec<String> = vec![];
+    let mut repo_list: Vec<String> = vec![];
 
     loop {
       terminal.draw(|rect| {
@@ -192,11 +194,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                               let (left, right) = render_issues(&issues_list_open, selected_issue_index, show_comment);
                               rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
                               rect.render_widget(right, data_chunck[1]);
-                              if prompt_open == true && show_org_modal == false {
+                              if prompt_open == true && show_org_modal == false && show_repo_modal == false {
                                   render_popup(rect, [].to_vec());
-                              } else if prompt_open == true && show_org_modal == true {
-                                  //TODO fix this
+                              } else if prompt_open == true && show_org_modal == true && show_repo_modal == false {
                                   render_popup(rect, org_list.clone());
+                                } else if prompt_open == true && show_repo_modal == true && show_org_modal == false {
+                                  render_popup(rect, repo_list.clone());
                               }
                         } else if active_open == true && show_comment == true {
                             let selected_issue_index =  issue_list_state_open.selected();
@@ -352,24 +355,35 @@ async fn main() -> Result<(), Box<dyn Error>> {
                   }
               },
               (KeyCode::Char('2'), _)=> {
-                // Show org modal:
                 show_org_modal = true;
+                show_repo_modal = false;
                 match active_menu_item {
                   MenuItem::Home => {}
                   MenuItem::Assignments => {
-                    org_list = get_org_list(&issues_list_open)
+                    org_list = get_org_list(&issues_list_open);
                   }
                   MenuItem::Closed => {
-                    org_list = get_org_list(&issues_list_closed)
-
+                    org_list = get_org_list(&issues_list_closed);
                   }
                   MenuItem::Refresh => {}
                   MenuItem::ToReview => {}
                 }
               },
               (KeyCode::Char('3'), _)=> {
-                // TODO handle this to filter by repository
-                //get_repo_list
+                show_repo_modal = true;
+                show_org_modal = false;
+                match active_menu_item {
+                  MenuItem::Home => {}
+                  MenuItem::Assignments => {
+                    repo_list = get_repo_list(&issues_list_open);
+                    println!("{:?}", repo_list);
+                  }
+                  MenuItem::Closed => {
+                    repo_list = get_repo_list(&issues_list_closed);
+                  }
+                  MenuItem::Refresh => {}
+                  MenuItem::ToReview => {}
+                }
               },
               (KeyCode::Char('p'), _) => {
                   if active_open == true {
