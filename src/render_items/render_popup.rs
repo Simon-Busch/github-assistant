@@ -9,7 +9,7 @@ fn convert_to_list_items(list: &Vec<String>) -> Vec<ListItem> {
       .collect()
 }
 
-pub fn render_popup(rect: &mut Frame<impl Backend>, items: Vec<String>) {
+pub fn render_popup(rect: &mut Frame<impl Backend>, items: Vec<String>, title: String) {
     let default_items = vec![
         "  1 - Close issue".to_string(),
         "  2 - Choose organisation".to_string(),
@@ -26,7 +26,7 @@ pub fn render_popup(rect: &mut Frame<impl Backend>, items: Vec<String>) {
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title("Actions"),
+                .title(title),
         )
         .highlight_style(Style::default().add_modifier(Modifier::BOLD))
         .highlight_symbol(">> ");
@@ -36,10 +36,13 @@ pub fn render_popup(rect: &mut Frame<impl Backend>, items: Vec<String>) {
         .title("Select an action")
         .style(Style::default().fg(Color::White).bg(Color::DarkGray));
 
-    let popup_chunk = centered_rect(25, 10, rect.size()); // Adjust the width and height values as needed
+    let popup_chunk = centered_rect(50, 20, rect.size()); // Adjust the width and height values as needed
 
     // Render the list on top of the existing widgets
     rect.render_widget(popup, popup_chunk);
     rect.render_widget(Clear, popup_chunk);
     rect.render_widget(list, popup_chunk);
+
+    // TODO
+    // On CTRL + number return the corresponding org / repo / default_items
 }

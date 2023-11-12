@@ -8,7 +8,7 @@ mod render_items;
 use render_items::{render_home, render_issues, render_waiting_screen, render_popup, render_error};
 
 mod utils;
-use utils::{get_current_state_and_list, move_selection, get_org_list, get_repo_list};
+use utils::{get_current_state_and_list, move_selection, get_org_list, get_repo_list, filter_issues_by_state};
 
 use dotenv::dotenv;
 use tokio;
@@ -195,11 +195,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                               rect.render_stateful_widget(left, data_chunck[0], &mut issue_list_state_open);
                               rect.render_widget(right, data_chunck[1]);
                               if prompt_open == true && show_org_modal == false && show_repo_modal == false {
-                                  render_popup(rect, [].to_vec());
+                                  render_popup(rect, [].to_vec(), "Actions".to_string());
                               } else if prompt_open == true && show_org_modal == true && show_repo_modal == false {
-                                  render_popup(rect, org_list.clone());
+                                  render_popup(rect, org_list.clone(), "Choose an organisation".to_string());
                                 } else if prompt_open == true && show_repo_modal == true && show_org_modal == false {
-                                  render_popup(rect, repo_list.clone());
+                                  render_popup(rect, repo_list.clone(), "Choose a repository".to_string());
                               }
                         } else if active_open == true && show_comment == true {
                             let selected_issue_index =  issue_list_state_open.selected();
@@ -342,7 +342,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                       let number = list[selected].number;
                       let repo_owner = list[selected].organization.as_ref().unwrap().to_owned();
                       let repo_name = list[selected].repository.as_ref().unwrap().to_owned();
-                      if prompt_open {
+                      if prompt_open == true {
                           update_issue_status(repo_owner, repo_name, number, &access_token, "closed").await?;
                           issues_list_open = issues_list_open.into_iter()
                           .filter(|item| item.number != number)
@@ -376,7 +376,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                   MenuItem::Home => {}
                   MenuItem::Assignments => {
                     repo_list = get_repo_list(&issues_list_open);
-                    println!("{:?}", repo_list);
                   }
                   MenuItem::Closed => {
                     repo_list = get_repo_list(&issues_list_closed);
@@ -385,10 +384,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
                   MenuItem::ToReview => {}
                 }
               },
-              (KeyCode::Char('p'), _) => {
+              (KeyCode::Char('n'), _) => {
                   if active_open == true {
                       prompt_open = !prompt_open;
                   }
+              },
+              (KeyCode::Char('P'), KeyModifiers::SHIFT) => {
+                  issues_list_open = filter_issues_by_state(&issues_list_open, true);
+              },
+              (KeyCode::Char('I'), KeyModifiers::SHIFT) => {
+                  issues_list_open = filter_issues_by_state(&issues_list_open, false);
               },
               (KeyCode::Char('r'), KeyModifiers::CONTROL) => {
                   (issues_list_open, issues_list_closed, assigned_pr_list, issues_list_open_len, issues_list_closed_len, assigned_pr_list_len) = init_gh_data(&username, &access_token).await.unwrap();

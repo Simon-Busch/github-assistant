@@ -38,16 +38,27 @@ pub fn move_selection(state: &mut ListState, items: &Vec<ApiResponseItem>, delta
     }
 }
 
-// pub fn filter_issues(issues: &Vec<ApiResponseItem>, filter: &str) -> Vec<ApiResponseItem> {
-//     let mut filtered_issues: Vec<ApiResponseItem> = vec![];
-//     for issue in issues {
-//         if issue.organization.contains(filter) {
-//             filtered_issues.push(issue.clone());
-//         }
-//     }
-//     filtered_issues
-// }
-
+pub fn filter_issues(issues: &Vec<ApiResponseItem>, filter: String) -> Vec<ApiResponseItem> {
+  let mut filtered_issues: Vec<ApiResponseItem> = vec![];
+  for issue in issues {
+      if let Some(organization) = &issue.organization {
+          if organization.contains(&filter) {
+              filtered_issues.push(issue.clone());
+          }
+      }
+  }
+  filtered_issues
+}
+// filter issue list by pasing is_pr
+pub fn filter_issues_by_state(issues: &Vec<ApiResponseItem>, filter_pr: bool) -> Vec<ApiResponseItem> {
+  let mut filtered_issues: Vec<ApiResponseItem> = vec![];
+  for issue in issues {
+      if issue.is_pr == filter_pr {
+          filtered_issues.push(issue.clone());
+      }
+  }
+  filtered_issues
+}
 
 pub fn get_org_list(issues: &Vec<ApiResponseItem>) -> Vec<String> {
   let mut org_list: Vec<String> = vec![];
