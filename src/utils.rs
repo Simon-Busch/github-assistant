@@ -32,16 +32,42 @@ pub fn get_current_state_and_list<'a>(
 }
 
 pub fn move_selection(state: &mut ListState, items: &Vec<ApiResponseItem>, delta: isize) {
+  if let Some(selected) = state.selected() {
+      let next = (selected as isize + delta).max(0).min((items.len() - 1) as isize);
+      state.select(Some(next as usize));
+  }
+}
+
+pub fn get_current_state_repo_org_list<'a> (
+    org_or_repo_list_state: &'a mut ListState,
+    org_or_repo_list: &'a Vec<String>,
+) -> (&'a mut ListState, &'a Vec<String>) {
+    (org_or_repo_list_state, org_or_repo_list)
+}
+
+pub fn move_selection_org_repo(state: &mut ListState, items: &Vec<String>, delta: isize) {
     if let Some(selected) = state.selected() {
         let next = (selected as isize + delta).max(0).min((items.len() - 1) as isize);
         state.select(Some(next as usize));
     }
 }
 
-pub fn filter_issues(issues: &Vec<ApiResponseItem>, filter: String) -> Vec<ApiResponseItem> {
+pub fn filter_issues_by_org(issues: &Vec<ApiResponseItem>, filter: String) -> Vec<ApiResponseItem> {
   let mut filtered_issues: Vec<ApiResponseItem> = vec![];
   for issue in issues {
       if let Some(organization) = &issue.organization {
+          if organization.contains(&filter) {
+              filtered_issues.push(issue.clone());
+          }
+      }
+  }
+  filtered_issues
+}
+
+pub fn filter_issues_by_repo(issues: &Vec<ApiResponseItem>, filter: String) -> Vec<ApiResponseItem> {
+  let mut filtered_issues: Vec<ApiResponseItem> = vec![];
+  for issue in issues {
+      if let Some(organization) = &issue.repository {
           if organization.contains(&filter) {
               filtered_issues.push(issue.clone());
           }

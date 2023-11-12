@@ -42,7 +42,4 @@ pub fn render_popup(rect: &mut Frame<impl Backend>, items: Vec<String>, title: S
     rect.render_widget(popup, popup_chunk);
     rect.render_widget(Clear, popup_chunk);
     rect.render_widget(list, popup_chunk);
-
-    // TODO
-    // On CTRL + number return the corresponding org / repo / default_items
 }
