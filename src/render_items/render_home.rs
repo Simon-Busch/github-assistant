@@ -71,6 +71,10 @@ pub fn render_home<'a>(opened: &i32, closed: &i32, review: &i32, username: &Stri
       Spans::from(vec![Span::raw("")]),
       Spans::from(vec![Span::styled("1: ", Style::default().add_modifier(Modifier::BOLD).fg(Color::LightCyan)), Span::raw("close issue")]),
       Spans::from(vec![Span::raw("")]),
+      Spans::from(vec![Span::styled("2: ", Style::default().add_modifier(Modifier::BOLD).fg(Color::LightCyan)), Span::raw("Show organisations")]),
+      Spans::from(vec![Span::raw("")]),
+      Spans::from(vec![Span::styled("3: ", Style::default().add_modifier(Modifier::BOLD).fg(Color::LightCyan)), Span::raw("Show repositories")]),
+      Spans::from(vec![Span::raw("")]),
 
       Spans::from(vec![Span::raw("")]),
 

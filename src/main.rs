@@ -248,7 +248,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 show_org_modal == false &&
                                 show_repo_modal == false
                             {
-                                render_popup(rect, [].to_vec(), "Actions".to_string());
+                                render_popup(rect, [].to_vec(), "Actions".to_string(), None);
                             } else if
                                 prompt_open == true &&
                                 show_org_modal == true &&
@@ -257,7 +257,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 render_popup(
                                     rect,
                                     org_list.clone(),
-                                    "Choose an organisation".to_string()
+                                    "Choose an organisation".to_string(),
+                                    org_or_repo_list.selected()
                                 );
                             } else if
                                 prompt_open == true &&
@@ -267,7 +268,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 render_popup(
                                     rect,
                                     repo_list.clone(),
-                                    "Choose a repository".to_string()
+                                    "Choose a repository".to_string(),
+                                    org_or_repo_list.selected()
                                 );
                             }
                         } else if active_open == true && show_comment == true {
@@ -517,6 +519,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     (KeyCode::Char('2'), _) => {
                         show_org_modal = true;
                         show_repo_modal = false;
+                        org_or_repo_list.select(Some(0));
                         match active_menu_item {
                             MenuItem::Home => {}
                             MenuItem::Assignments => {
@@ -532,6 +535,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     (KeyCode::Char('3'), _) => {
                         show_repo_modal = true;
                         show_org_modal = false;
+                        org_or_repo_list.select(Some(0));
                         match active_menu_item {
                             MenuItem::Home => {}
                             MenuItem::Assignments => {
