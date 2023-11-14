@@ -5,7 +5,14 @@ mod api;
 use api::{ init_gh_data, update_issue_status };
 
 mod render_items;
-use render_items::{ render_home, render_issues, render_waiting_screen, render_popup, render_error };
+use render_items::{
+    render_home,
+    render_issues,
+    render_waiting_screen,
+    render_popup,
+    render_error,
+    render_loading_popup,
+};
 
 mod utils;
 use utils::{
@@ -85,7 +92,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     enable_raw_mode().expect("can run in raw mode");
     let (username, access_token) = init_variables();
     let (tx, rx) = mpsc::channel();
-    let tick_rate = Duration::from_millis(200);
+    let tick_rate = Duration::from_millis(1000);
     thread::spawn(move || {
         let mut last_tick = Instant::now();
         loop {
@@ -151,6 +158,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut show_repo_modal = false;
     let mut org_list: Vec<String> = vec![];
     let mut repo_list: Vec<String> = vec![];
+    let mut is_loading = false;
 
     loop {
         terminal.draw(|rect| {
@@ -209,7 +217,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             rect.render_widget(tabs, chunks[0]);
             match active_menu_item {
-                MenuItem::Home =>
+                MenuItem::Home => if is_loading == true {
+                    let data_chunk = Layout::default()
+                        .direction(Direction::Horizontal)
+                        .constraints([Constraint::Percentage(100)].as_ref())
+                        .split(chunks[1]);
+                    render_loading_popup(rect, data_chunk[0]);
+                } else {
                     rect.render_widget(
                         render_home(
                             &issues_list_open_len,
@@ -218,9 +232,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             &username
                         ),
                         chunks[1]
-                    ),
+                    );
+                }
                 MenuItem::Assignments => {
-                    if issues_list_open_len == 0 {
+                    if is_loading == true {
+                        let data_chunk = Layout::default()
+                            .direction(Direction::Horizontal)
+                            .constraints([Constraint::Percentage(100)].as_ref())
+                            .split(chunks[1]);
+                        render_loading_popup(rect, data_chunk[0]);
+                    } else if issues_list_open_len == 0 {
                         render_error(rect, "No assigned issues found");
                     } else {
                         let data_chunck = Layout::default()
@@ -289,7 +310,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
                 MenuItem::Closed => {
-                    if issues_list_closed_len == 0 {
+                    if is_loading == true {
+                        let data_chunk = Layout::default()
+                            .direction(Direction::Horizontal)
+                            .constraints([Constraint::Percentage(100)].as_ref())
+                            .split(chunks[1]);
+                        render_loading_popup(rect, data_chunk[0]);
+                    } else if issues_list_closed_len == 0 {
                         render_error(rect, "No closed issues found");
                     } else {
                         let data_chunck = Layout::default()
@@ -560,6 +587,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         issues_list_open = filter_issues_by_state(&issues_list_open, false);
                     }
                     (KeyCode::Char('r'), KeyModifiers::CONTROL) => {
+                        is_loading = true;
                         (
                             issues_list_open,
                             issues_list_closed,
@@ -568,6 +596,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             issues_list_closed_len,
                             assigned_pr_list_len,
                         ) = init_gh_data(&username, &access_token).await.unwrap();
+                        is_loading = false;
                     }
                     (KeyCode::Char('t'), KeyModifiers::CONTROL) => {
                         if to_review_open == false {
