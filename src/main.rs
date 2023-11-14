@@ -587,6 +587,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         issues_list_open = filter_issues_by_state(&issues_list_open, false);
                     }
                     (KeyCode::Char('r'), KeyModifiers::CONTROL) => {
+                      // TODO
+                      // Not working, pausing the code for execution so loading is never used
                         is_loading = true;
                         (
                             issues_list_open,
