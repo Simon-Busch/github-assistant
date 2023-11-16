@@ -1,7 +1,5 @@
 use tui::{Frame, backend::Backend, widgets::{Block, Borders, Clear, Paragraph}, style::{Style, Color}, layout::Rect};
 
-use crate::utils::centered_rect;
-
 pub fn render_loading_popup(rect: &mut Frame<impl Backend>, area: Rect) {
   let loading_text = r#"
   _______ __________________                   ______     _______  _______  _______ _________ _______ _________ _______  _       _________

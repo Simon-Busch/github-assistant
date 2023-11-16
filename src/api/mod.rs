@@ -1,6 +1,6 @@
 use crate::structs;
-use structs::{ApiResponseItem};
-use std::{error::Error};
+use structs::ApiResponseItem;
+use std::error::Error;
 mod fetch_github_data;
 mod fetch_github_pr_review;
 mod update_issue_status;
