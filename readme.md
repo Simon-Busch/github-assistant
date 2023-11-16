@@ -42,7 +42,7 @@ And run it with
 
 **ENTER**: open the issue in the browser
 
-**CTRL + p**: show actions
+**CTRL + i**: show actions
 
 **1**: close issue
 
