@@ -23,11 +23,14 @@ pub fn render_issues<'a>(
     show_comment: bool
 ) -> (List<'a>, Table<'a>) {
     let mut count = 0;
-    // Determine the terminal width, with a default value if it cannot be determined
+    // Determine the terminal width and hight, with a default value if it cannot be determined
     let terminal_size = size().unwrap_or_default();
     let terminal_width = terminal_size.0 as usize;
-    let percentage = 0.65;
-    let body_width = ((terminal_width as f32) * percentage) as usize;
+    let terminal_height = terminal_size.1 as usize;
+    let percentage_width = 0.65;
+    let percentage_body = 0.6;
+    let body_width = ((terminal_width as f32) * percentage_width) as usize;
+    let body_height = ((terminal_height as f32) * percentage_body) as usize;
 
     let items: Vec<ListItem> = issues
         .iter()
@@ -91,12 +94,6 @@ pub fn render_issues<'a>(
 
     let selected_issue = selected_issue_index.map(|i| &issues[i]).unwrap_or(&binding);
 
-    let body_height = match &selected_issue.body {
-        Some(body) => body.lines().count() + 1,
-        None => 1,
-    };
-    const MAX_BODY_LENGTH: usize = 1000; // Define the maximum length to display
-
     // test
     let org_repo_text = if
         let (Some(org), Some(repo)) = (&selected_issue.organization, &selected_issue.repository)
@@ -106,8 +103,23 @@ pub fn render_issues<'a>(
         String::from("N/A")
     };
 
-    let issue_details;
+    let max_lines: usize = body_height.try_into().unwrap_or_default(); // Maximum number of lines based on available height
+    let mut display_body = String::new();
+    if let Some(body) = &selected_issue.body {
+        let lines: Vec<&str> = body.split('\n').collect(); // Split body into lines
+        for line in lines.iter().take(max_lines) {
+            display_body.push_str(line);
+            display_body.push('\n');
+        }
+        // If the number of lines exceeds available height, add an ellipsis
+        if lines.len() > max_lines {
+            display_body.push_str("..."); // Indicate there's more text
+        }
+    } else {
+        display_body = String::from("N/A");
+    }
 
+    let issue_details;
     if show_comment == true {
         let comments_text: Vec<String> = selected_issue.comments_list
             .iter()
@@ -122,7 +134,7 @@ pub fn render_issues<'a>(
                 format!("{}: {}", comment.user.login, formatted_comment)
             })
             .collect();
-
+        println!("{:?}", comments_text);
         let comments_cell;
         if comments_text.is_empty() {
             comments_cell = Cell::from("No comments");
@@ -133,6 +145,18 @@ pub fn render_issues<'a>(
         }
         issue_details = Table::new(
             vec![
+                Row::new(vec![Cell::from("Created at")])
+                    .style(Style::default().fg(Color::LightCyan))
+                    .height(1),
+                Row::new(vec![Cell::from(format_date(&selected_issue.created_at.clone()))])
+                    .style(Style::default().fg(Color::White))
+                    .height(2),
+                Row::new(vec![Cell::from("Updated at")])
+                    .style(Style::default().fg(Color::LightCyan))
+                    .height(1),
+                Row::new(vec![Cell::from(format_date(&selected_issue.updated_at.clone()))])
+                    .style(Style::default().fg(Color::White))
+                    .height(2),
                 Row::new(vec![Cell::from("Comments").style(Style::default().fg(Color::LightCyan))]),
                 Row::new(vec![comments_cell]).style(Style::default().fg(Color::White)).height(25)
             ]
@@ -170,47 +194,16 @@ pub fn render_issues<'a>(
                 Row::new(vec![Cell::from("Description")])
                     .style(Style::default().fg(Color::LightCyan))
                     .height(1),
-                Row::new(
-                    vec![match &selected_issue.body {
-                        Some(body) => {
-                            let mut display_body = body.clone(); // Copy the body content
-                            if display_body.len() > MAX_BODY_LENGTH {
-                                display_body.truncate(MAX_BODY_LENGTH); // Truncate long body
-                                display_body.push_str("..."); // Add ellipsis to indicate truncation
-                            }
-                            Cell::from(display_body)
-                        }
-                        None => Cell::from("N/A"),
-                    }]
-                )
+                Row::new(vec![Cell::from(display_body)])
                     .style(Style::default().fg(Color::White))
-                    .height(20)
-
-                // Row::new(vec![Cell::from("Created at")])
-                //     .style(Style::default().fg(Color::LightCyan))
-                //     .height(1),
-                // Row::new(vec![Cell::from(format_date(&selected_issue.created_at.clone()))])
-                //     .style(Style::default().fg(Color::White))
-                //     .height(2),
-
-                // Row::new(vec![Cell::from("Updated at")])
-                //     .style(Style::default().fg(Color::LightCyan))
-                //     .height(1),
-                // Row::new(vec![Cell::from(format_date(&selected_issue.updated_at.clone()))])
-                //     .style(Style::default().fg(Color::White))
-                //     .height(2)
+                    .height(body_height.try_into().unwrap_or(1))
             ]
         )
             .block(
                 Block::default()
                     .title(
                         string_to_spans(
-                            format!(
-                                "{} - {} - Last Update: {}",
-                                selected_issue.number,
-                                selected_issue.title,
-                                format_date(&selected_issue.updated_at.clone())
-                            )
+                            format!("{} - {}", selected_issue.number, selected_issue.title)
                         )
                     )
                     .border_type(BorderType::Rounded)
