@@ -8,13 +8,6 @@ use tui::{
 pub fn render_home<'a>(opened: &i32, closed: &i32, review: &i32, username: &String) -> Paragraph<'a> {
   let home = Paragraph::new(vec![
       Spans::from(vec![Span::raw("")]),
-      Spans::from(vec![Span::raw("")]),
-      Spans::from(vec![Span::raw("")]),
-      Spans::from(vec![Span::raw("")]),
-      Spans::from(vec![Span::raw("")]),
-      Spans::from(vec![Span::raw("")]),
-      Spans::from(vec![Span::raw("")]),
-      Spans::from(vec![Span::raw("")]),
       Spans::from(vec![Span::raw(format!("Welcome to your GitHub assistant, {} ⭐️", username))]),
       Spans::from(vec![Span::raw("")]),
       Spans::from(vec![Span::raw("")]),

@@ -85,7 +85,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     enable_raw_mode().expect("can run in raw mode");
     let (username, access_token) = init_variables();
     let (tx, rx) = mpsc::channel();
-    let tick_rate = Duration::from_millis(200);
+    let tick_rate = Duration::from_millis(2000);
     thread::spawn(move || {
         let mut last_tick = Instant::now();
         loop {
