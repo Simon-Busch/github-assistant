@@ -314,7 +314,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         }
                     }
                 }
-                MenuItem::Refresh => {}
+                MenuItem::Refresh => {
+                  active_menu_item = MenuItem::Home;
+                }
                 MenuItem::ToReview => {
                     if assigned_pr_list_len == 0 {
                         render_error(rect, "No Assigned PR");

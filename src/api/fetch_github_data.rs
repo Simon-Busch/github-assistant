@@ -1,10 +1,8 @@
 use reqwest::header::{HeaderValue, ACCEPT};
 use reqwest::header;
-
 use crate::structs;
 use structs::{ApiResponse, IssueComments};
 use std::error::Error;
-
 
 pub async fn get_github_response(username: &str, access_token: &str, status: &str) -> Result<ApiResponse, Box<dyn Error>> {
     let mut headers = header::HeaderMap::new();
@@ -17,6 +15,10 @@ pub async fn get_github_response(username: &str, access_token: &str, status: &st
         HeaderValue::from_str(&format!("Bearer {}", access_token)).unwrap(),
     );
     headers.insert("User-Agent", HeaderValue::from_static("my app"));
+    headers.insert(
+      "X-GitHub-Api-Version",
+      HeaderValue::from_static("2022-11-28"),
+  );
     let client = reqwest::Client::builder()
         .default_headers(headers)
         .build()?;

@@ -134,7 +134,6 @@ pub fn render_issues<'a>(
                 format!("{}: {}", comment.user.login, formatted_comment)
             })
             .collect();
-        println!("{:?}", comments_text);
         let comments_cell;
         if comments_text.is_empty() {
             comments_cell = Cell::from("No comments");
