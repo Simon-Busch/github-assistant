@@ -2,6 +2,7 @@
 # Github Assistant
 Organize and manage your GitHub issues and pull requests with ease using our Rust-based application. Stay on top of your work by quickly accessing, filtering, and browsing issues/PRs directly from your terminal. With built-in functionality to display comments, assignments, and more, you'll have all the information you need at your fingertips.
 
+![Local Image](landing.png)
 
 ## Get started
 To use the application, you need to set your GitHub username and personal access token as environment variables:
